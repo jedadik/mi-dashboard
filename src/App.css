@@ -1,3 +1,11 @@
+.dashboard-scroll {
+  scrollbar-width: none;
+}
+
+.dashboard-scroll::-webkit-scrollbar {
+  display: none;
+}
+
 .counter {
   font-size: 16px;
   padding: 5px 10px;

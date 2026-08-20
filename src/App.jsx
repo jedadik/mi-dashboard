@@ -232,8 +232,8 @@ export default function App() {
     "w-full rounded-lg border border-slate-800 bg-slate-950 px-3 py-2 text-sm text-slate-100 outline-none focus:border-blue-500";
 
   return (
-    <div className="min-h-screen bg-slate-900 text-slate-100 md:flex">
-      <aside className="border-b border-slate-800 bg-slate-950 p-5 md:min-h-screen md:w-64 md:border-b-0 md:border-r md:p-6">
+    <div className="min-h-screen w-full overflow-x-hidden bg-slate-900 text-slate-100 md:flex">
+      <aside className="border-b border-slate-800 bg-slate-950 p-4 md:min-h-screen md:w-64 md:shrink-0 md:border-b-0 md:border-r md:p-6">
         <div className="mb-8 flex items-center gap-3">
           <div className="rounded-lg bg-blue-500/15 p-2 text-blue-400">
             <BookOpen size={20} />
@@ -260,7 +260,7 @@ export default function App() {
         </nav>
       </aside>
 
-      <main className="mx-auto w-full max-w-6xl flex-1 p-5 md:p-10">
+      <main className="mx-auto min-w-0 w-full max-w-6xl flex-1 p-4 sm:p-5 md:p-10">
         {notice && (
           <div className="fixed right-5 top-5 z-10 rounded-lg border border-amber-500/30 bg-slate-800 px-4 py-3 text-sm text-amber-200 shadow-xl">
             {notice}
@@ -281,7 +281,7 @@ export default function App() {
         </header>
 
         <section className="mb-8">
-          <div className="flex gap-3 overflow-x-auto pb-3">
+          <div className="dashboard-scroll flex gap-3 overflow-x-auto pb-3">
             {categories.map((category) => (
               <button
                 key={category.id}
@@ -373,14 +373,14 @@ export default function App() {
               )}
             </section>
 
-            <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_300px]">
-              <section className="rounded-2xl border border-slate-800 bg-slate-950 p-5 md:p-6">
+            <div className="grid min-w-0 gap-5 xl:grid-cols-[minmax(0,1fr)_300px]">
+              <section className="min-w-0 overflow-hidden rounded-2xl border border-slate-800 bg-slate-950 p-4 sm:p-5 md:p-6">
                 <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
                   <h3 className="flex items-center gap-2 text-lg font-bold">
                     <Calendar size={18} className="text-blue-400" />
                     Tareas
                   </h3>
-                  <div className="flex gap-1 overflow-x-auto rounded-lg bg-slate-900 p-1">
+                  <div className="dashboard-scroll flex max-w-full gap-1 overflow-x-auto rounded-lg bg-slate-900 p-1">
                     {filters.map((item) => (
                       <button
                         key={item.id}
@@ -394,7 +394,7 @@ export default function App() {
                 </div>
                 <form
                   onSubmit={addTask}
-                  className="mb-6 grid gap-3 rounded-xl border border-slate-800 bg-slate-900 p-4 md:grid-cols-[1fr_150px_120px_auto]"
+                  className="mb-6 grid min-w-0 grid-cols-1 gap-3 rounded-xl border border-slate-800 bg-slate-900 p-3 sm:p-4 md:grid-cols-[minmax(0,1fr)_150px_120px_auto]"
                 >
                   <input
                     className={inputClass}
@@ -431,7 +431,7 @@ export default function App() {
                       setNewTask({ ...newTask, details: event.target.value })
                     }
                   />
-                  <button className="flex items-center justify-center gap-1 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold hover:bg-blue-500">
+                  <button className="flex w-full items-center justify-center gap-1 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold hover:bg-blue-500 md:w-auto">
                     <Plus size={16} />
                     Añadir
                   </button>
@@ -447,7 +447,7 @@ export default function App() {
                         <form
                           key={task.id}
                           onSubmit={(event) => saveEdit(event, task.id)}
-                          className="grid gap-3 rounded-xl border border-blue-500/50 bg-slate-900 p-4 md:grid-cols-[1fr_150px_120px_auto]"
+                          className="grid min-w-0 grid-cols-1 gap-3 rounded-xl border border-blue-500/50 bg-slate-900 p-3 sm:p-4 md:grid-cols-[minmax(0,1fr)_150px_120px_auto]"
                         >
                           <input
                             className={inputClass}
@@ -517,7 +517,7 @@ export default function App() {
                           key={task.id}
                           className={`rounded-xl border p-4 transition ${task.is_completed ? "border-slate-900 bg-slate-900/50 text-slate-500" : "border-slate-800 bg-slate-900 hover:border-slate-700"}`}
                         >
-                          <div className="flex items-center justify-between gap-3">
+                          <div className="flex min-w-0 flex-wrap items-center justify-between gap-3">
                             <button
                               onClick={() => toggleTask(task)}
                               className="flex min-w-0 items-center gap-3 text-left"
@@ -539,7 +539,7 @@ export default function App() {
                                 {task.title}
                               </span>
                             </button>
-                            <div className="flex shrink-0 items-center gap-2 text-xs">
+                            <div className="flex w-full shrink-0 items-center justify-end gap-1 text-xs sm:w-auto sm:gap-2">
                             <span
                               className={`rounded-full border px-2 py-1 font-semibold ${priorityStyles[task.priority] || priorityStyles.media}`}
                             >
