@@ -40,6 +40,8 @@ const priorityStyles = {
 const wompiCheckoutUrl =
   import.meta.env.VITE_WOMPI_CHECKOUT_URL ||
   "https://checkout.wompi.co/l/VPOS_zPdUt1";
+const wompiMonthlyUrl = import.meta.env.VITE_WOMPI_URL_MENSUAL;
+const wompiAnnualUrl = import.meta.env.VITE_WOMPI_URL_ANUAL;
 
 const todayString = () => new Date().toISOString().slice(0, 10);
 
@@ -128,7 +130,7 @@ function SubscriptionLockScreen({ onSignOut }) {
         </div>
       </div>
       <div className="absolute inset-0 bg-slate-950/65" />
-      <section className="relative z-10 w-full max-w-lg rounded-3xl border border-amber-500/30 bg-slate-900/95 p-6 text-center shadow-2xl shadow-amber-950/20 backdrop-blur sm:p-8">
+      <section className="relative z-10 w-full max-w-4xl rounded-3xl border border-amber-500/30 bg-slate-900/95 p-6 text-center shadow-2xl shadow-amber-950/20 backdrop-blur sm:p-8">
         <AlertTriangle className="mx-auto text-amber-300" size={42} />
         <h1 className="mt-5 text-2xl font-bold text-white">
           Tu suscripción no está activa
@@ -136,15 +138,49 @@ function SubscriptionLockScreen({ onSignOut }) {
         <p className="mt-3 text-sm leading-6 text-slate-400">
           Renueva tu suscripción para continuar usando el Dashboard.
         </p>
-        <a
-          href={wompiCheckoutUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="mt-6 inline-flex items-center gap-2 rounded-xl bg-blue-600 px-5 py-3 text-sm font-bold text-white transition hover:bg-blue-500"
-        >
-          Renovar con Wompi
-          <ArrowRight size={17} />
-        </a>
+        <div className="mt-7 grid gap-4 text-left md:grid-cols-2">
+          <article className="flex flex-col rounded-2xl border border-slate-700 bg-slate-950/80 p-5">
+            <p className="text-xs font-bold uppercase tracking-[0.18em] text-blue-300">
+              Plan mensual
+            </p>
+            <h2 className="mt-3 text-3xl font-extrabold text-white">
+              $20.000 <span className="text-sm font-medium text-slate-400">COP / mes</span>
+            </h2>
+            <p className="mt-3 text-sm text-slate-400">Acceso total por 30 días.</p>
+            <a
+              href={wompiMonthlyUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-6 inline-flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-5 py-3 text-sm font-bold text-white transition hover:bg-blue-500"
+            >
+              Elegir plan mensual
+              <ArrowRight size={17} />
+            </a>
+          </article>
+          <article className="relative flex flex-col rounded-2xl border border-emerald-400/50 bg-emerald-500/10 p-5">
+            <span className="absolute -top-3 right-5 rounded-full bg-emerald-400 px-3 py-1 text-xs font-extrabold text-slate-950">
+              Ahorra más · Recomendado
+            </span>
+            <p className="text-xs font-bold uppercase tracking-[0.18em] text-emerald-300">
+              Plan anual
+            </p>
+            <h2 className="mt-3 text-3xl font-extrabold text-white">
+              $180.000 <span className="text-sm font-medium text-slate-300">COP / año</span>
+            </h2>
+            <p className="mt-3 text-sm text-slate-300">
+              Acceso total por 365 días ($15.000/mes).
+            </p>
+            <a
+              href={wompiAnnualUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-6 inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-400 px-5 py-3 text-sm font-bold text-slate-950 transition hover:bg-emerald-300"
+            >
+              Elegir plan anual
+              <ArrowRight size={17} />
+            </a>
+          </article>
+        </div>
         <button
           type="button"
           onClick={onSignOut}
