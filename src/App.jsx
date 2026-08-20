@@ -149,6 +149,41 @@ export default function App() {
     setNewCatName("");
   }
 
+  async function deleteCategory(category) {
+    const confirmed = window.confirm(
+      `¿Eliminar "${category.name}" y todas sus tareas? Esta acción no se puede deshacer.`,
+    );
+    if (!confirmed) return;
+
+    const { error: tasksError } = await supabase
+      .from("tasks")
+      .delete()
+      .eq("category_id", category.id);
+    if (tasksError) {
+      return showNotice(`No se pudo eliminar la asignatura: ${tasksError.message}`);
+    }
+
+    const { error: categoryError } = await supabase
+      .from("categories")
+      .delete()
+      .eq("id", category.id);
+    if (categoryError) {
+      return showNotice(`No se pudo eliminar la asignatura: ${categoryError.message}`);
+    }
+
+    const remainingCategories = categories.filter(
+      (item) => item.id !== category.id,
+    );
+    setCategories(remainingCategories);
+    setTasks((current) =>
+      current.filter((task) => task.category_id !== category.id),
+    );
+    if (selectedCategory === category.id) {
+      setSelectedCategory(remainingCategories[0]?.id || null);
+      setExpandedTaskId(null);
+    }
+  }
+
   async function addTask(event) {
     event.preventDefault();
     if (!newTask.title.trim() || !newTask.due_date || !selectedCategory) return;
@@ -318,16 +353,29 @@ export default function App() {
         <section className="mb-8">
           <div className="dashboard-scroll flex gap-3 overflow-x-auto pb-3">
             {categories.map((category) => (
-              <button
+              <div
                 key={category.id}
-                onClick={() => {
-                  setSelectedCategory(category.id);
-                  setFilter("all");
-                }}
-                className={`shrink-0 rounded-xl border px-5 py-3 text-sm font-semibold transition ${selectedCategory === category.id ? "border-blue-500 bg-slate-800 text-blue-300" : "border-slate-800 bg-slate-950 text-slate-400 hover:border-slate-600"}`}
+                className={`flex shrink-0 items-center rounded-xl border text-sm font-semibold transition ${selectedCategory === category.id ? "border-blue-500 bg-slate-800 text-blue-300" : "border-slate-800 bg-slate-950 text-slate-400"}`}
               >
-                {category.name}
-              </button>
+                <button
+                  onClick={() => {
+                    setSelectedCategory(category.id);
+                    setFilter("all");
+                  }}
+                  className="px-4 py-3 hover:text-blue-300"
+                >
+                  {category.name}
+                </button>
+                <button
+                  type="button"
+                  title={`Eliminar ${category.name}`}
+                  aria-label={`Eliminar ${category.name}`}
+                  onClick={() => deleteCategory(category)}
+                  className="mr-2 rounded-md p-1.5 text-slate-500 hover:bg-red-500/10 hover:text-red-300"
+                >
+                  <Trash2 size={15} />
+                </button>
+              </div>
             ))}
           </div>
           <form onSubmit={addCategory} className="flex max-w-md gap-2">
