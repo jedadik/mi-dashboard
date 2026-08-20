@@ -2,7 +2,6 @@ import React, { useEffect, useRef, useState } from "react";
 import { supabase } from "./lib/supabase";
 import {
   AlertTriangle,
-  BookOpen,
   Calendar,
   CheckCircle2,
   ChevronDown,
@@ -304,11 +303,14 @@ export default function App() {
   return (
     <div className="min-h-screen w-full overflow-x-hidden bg-slate-900 text-slate-100 md:flex">
       <aside className="border-b border-slate-800 bg-slate-950 p-4 md:min-h-screen md:w-64 md:shrink-0 md:border-b-0 md:border-r md:p-6">
-        <div className="mb-8 flex items-center gap-3">
-          <div className="rounded-lg bg-blue-500/15 p-2 text-blue-400">
-            <BookOpen size={20} />
+        <div className="mb-8 flex items-center justify-center gap-3">
+          <div className="relative flex h-16 w-44 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-slate-800 bg-slate-950 shadow-[0_0_20px_rgba(37,99,235,0.18)] sm:h-[4.5rem] sm:w-48 md:h-20 md:w-52">
+            <img
+              src="/logo.png"
+              alt="JEDAI"
+              className="h-full w-full object-contain object-center"
+            />
           </div>
-          <h1 className="font-bold tracking-wider">MI DASHBOARD</h1>
         </div>
         <nav className="grid grid-cols-2 gap-2 md:block md:space-y-2">
           {[
