@@ -12,7 +12,6 @@ import {
   Edit3,
   FileText,
   GraduationCap,
-  KeyRound,
   LockKeyhole,
   LogOut,
   Mail,
@@ -38,13 +37,9 @@ const priorityStyles = {
   baja: "border-emerald-500/30 bg-emerald-500/10 text-emerald-300",
 };
 
-const VALID_INVITE_CODES = ["VIP2026", "PROSTUDENT", "LAUNCH100"];
-const configuredInviteCode = import.meta.env.VITE_INVITE_CODE?.trim();
-const inviteCodes = configuredInviteCode
-  ? [configuredInviteCode]
-  : VALID_INVITE_CODES;
-const invitePurchaseUrl =
-  import.meta.env.VITE_INVITE_PURCHASE_URL || "https://wa.me/";
+const wompiCheckoutUrl =
+  import.meta.env.VITE_WOMPI_CHECKOUT_URL ||
+  "https://checkout.wompi.co/l/VPOS_zPdUt1";
 
 const todayString = () => new Date().toISOString().slice(0, 10);
 
@@ -102,11 +97,42 @@ function CompactDateInput({ value, onChange, min, label }) {
   );
 }
 
+function SubscriptionLockScreen({ onSignOut }) {
+  return (
+    <main className="flex min-h-screen items-center justify-center bg-slate-950 px-4 py-8 text-slate-100">
+      <section className="w-full max-w-lg rounded-3xl border border-amber-500/30 bg-slate-900 p-6 text-center shadow-2xl shadow-amber-950/20 sm:p-8">
+        <AlertTriangle className="mx-auto text-amber-300" size={42} />
+        <h1 className="mt-5 text-2xl font-bold text-white">
+          Tu suscripción no está activa
+        </h1>
+        <p className="mt-3 text-sm leading-6 text-slate-400">
+          Renueva tu suscripción para continuar usando el Dashboard.
+        </p>
+        <a
+          href={wompiCheckoutUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="mt-6 inline-flex items-center gap-2 rounded-xl bg-blue-600 px-5 py-3 text-sm font-bold text-white transition hover:bg-blue-500"
+        >
+          Renovar con Wompi
+          <ArrowRight size={17} />
+        </a>
+        <button
+          type="button"
+          onClick={onSignOut}
+          className="mt-4 block w-full text-sm text-slate-400 hover:text-white"
+        >
+          Cerrar sesión
+        </button>
+      </section>
+    </main>
+  );
+}
+
 function AuthScreen() {
   const [mode, setMode] = useState("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [inviteCode, setInviteCode] = useState("");
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
@@ -122,18 +148,6 @@ function AuthScreen() {
       setError("Completa los campos requeridos.");
       return;
     }
-    if (
-      isRegister &&
-      !inviteCodes.some(
-        (code) => code.toUpperCase() === inviteCode.trim().toUpperCase(),
-      )
-    ) {
-      setError(
-        "Código de invitación no válido. Contacta al administrador para obtener tu acceso.",
-      );
-      return;
-    }
-
     setLoading(true);
     const result = isRecovery
       ? await supabase.auth.resetPasswordForEmail(email.trim(), {
@@ -190,32 +204,6 @@ function AuthScreen() {
               </div>
             </label>
           )}
-          {isRegister && (
-            <label className="block text-sm font-medium text-slate-300">
-              Código de Licencia / Invitación
-              <div className="relative mt-2">
-                <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={17} />
-                <input
-                  type="text"
-                  autoComplete="off"
-                  value={inviteCode}
-                  onChange={(event) => setInviteCode(event.target.value)}
-                  className="w-full rounded-xl border border-slate-700 bg-slate-950 py-3 pl-10 pr-3 text-sm uppercase tracking-wider text-white outline-none transition focus:border-blue-500"
-                  placeholder="Introduce tu código"
-                  required
-                />
-              </div>
-              <a
-                href={invitePurchaseUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="mt-2 inline-block text-xs text-blue-300 hover:text-blue-200"
-              >
-                ¿No tienes un código? Adquiérelo aquí
-              </a>
-            </label>
-          )}
-
           {error && <p className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-300">{error}</p>}
           {message && <p className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-300">{message}</p>}
           <button disabled={loading} className="flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 py-3 text-sm font-bold text-white transition hover:bg-blue-500 disabled:cursor-wait disabled:opacity-60">
@@ -237,6 +225,8 @@ function AuthScreen() {
 export default function App() {
   const [session, setSession] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
+  const [profile, setProfile] = useState(null);
+  const [profileLoading, setProfileLoading] = useState(false);
   const [activeTab, setActiveTab] = useState("university");
   const [categories, setCategories] = useState([]);
   const [selectedCategory, setSelectedCategory] = useState(null);
@@ -288,6 +278,37 @@ export default function App() {
   useEffect(() => {
     if (!session?.user?.id) return;
 
+    let mounted = true;
+    setProfile(null);
+    setProfileLoading(true);
+
+    async function fetchProfile() {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("subscription_status, subscription_end_date")
+        .eq("id", session.user.id)
+        .maybeSingle();
+
+      if (!mounted) return;
+      setProfile(error ? null : data);
+      setProfileLoading(false);
+    }
+
+    fetchProfile();
+
+    return () => {
+      mounted = false;
+    };
+  }, [session]);
+
+  const isSubscriptionValid =
+    profile?.subscription_status === "active" &&
+    profile?.subscription_end_date != null &&
+    new Date(profile.subscription_end_date).getTime() > Date.now();
+
+  useEffect(() => {
+    if (!session?.user?.id || !isSubscriptionValid) return;
+
     async function fetchDashboardData() {
       const [{ data: categoryData }, { data: taskData }] = await Promise.all([
         supabase
@@ -313,7 +334,7 @@ export default function App() {
     }
 
     fetchDashboardData();
-  }, [activeTab, session]);
+  }, [activeTab, isSubscriptionValid, session]);
 
   useEffect(() => {
     const timer = window.setInterval(() => setCurrentTime(new Date()), 60000);
@@ -546,6 +567,16 @@ export default function App() {
   }
 
   if (!session) return <AuthScreen />;
+  if (profileLoading) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-slate-950 text-sm text-slate-400">
+        Verificando suscripción...
+      </main>
+    );
+  }
+  if (!isSubscriptionValid) {
+    return <SubscriptionLockScreen onSignOut={signOut} />;
+  }
 
   return (
     <div className="min-h-screen w-full overflow-x-hidden bg-slate-900 text-slate-100 md:flex">
