@@ -477,25 +477,58 @@ export default function App() {
       (task) => !task.is_completed && task.priority === "alta" && task.due_date,
     )
     .sort((a, b) => a.due_date.localeCompare(b.due_date))[0];
-  const visibleTasks = categoryTasks.filter((task) => {
-    const today = todayString();
-    if (filter === "completed") return task.is_completed;
-    if (filter === "overdue")
-      return !task.is_completed && task.due_date < today;
-    if (filter === "today") return task.due_date === today;
-    if (filter === "week") {
-      const date = new Date(`${task.due_date}T00:00:00`);
-      const weekStart = startOfWeek(new Date());
-      const weekEnd = new Date(weekStart);
-      weekEnd.setDate(weekEnd.getDate() + 7);
-      return date >= weekStart && date < weekEnd;
-    }
-    return true;
-  });
+  const visibleTasks = categoryTasks
+    .filter((task) => {
+      const today = todayString();
+      if (filter === "completed") return task.is_completed;
+      if (filter === "overdue")
+        return !task.is_completed && task.due_date < today;
+      if (filter === "today") return task.due_date === today;
+      if (filter === "week") {
+        const date = new Date(`${task.due_date}T00:00:00`);
+        const weekStart = startOfWeek(new Date());
+        const weekEnd = new Date(weekStart);
+        weekEnd.setDate(weekEnd.getDate() + 7);
+        return date >= weekStart && date < weekEnd;
+      }
+      return true;
+    })
+    .sort((firstTask, secondTask) => {
+      if (!firstTask.due_date) return 1;
+      if (!secondTask.due_date) return -1;
+      return firstTask.due_date.localeCompare(secondTask.due_date);
+    });
 
   const selectedName = categories.find(
     (category) => category.id === selectedCategory,
   )?.name;
+  const sortedCategories = [...categories].sort((firstCategory, secondCategory) => {
+    const firstDueDate = tasks
+      .filter(
+        (task) =>
+          task.category_id === firstCategory.id &&
+          !task.is_completed &&
+          task.due_date,
+      )
+      .map((task) => task.due_date)
+      .sort()[0];
+    const secondDueDate = tasks
+      .filter(
+        (task) =>
+          task.category_id === secondCategory.id &&
+          !task.is_completed &&
+          task.due_date,
+      )
+      .map((task) => task.due_date)
+      .sort()[0];
+
+    if (!firstDueDate && !secondDueDate) {
+      return firstCategory.name.localeCompare(secondCategory.name);
+    }
+    if (!firstDueDate) return 1;
+    if (!secondDueDate) return -1;
+    return firstDueDate.localeCompare(secondDueDate);
+  });
   const inputClass =
     "w-full rounded-lg border border-slate-800 bg-slate-950 px-3 py-2 text-sm text-slate-100 outline-none focus:border-blue-500";
 
@@ -580,7 +613,7 @@ export default function App() {
 
         <section className="mb-8">
           <div className="dashboard-scroll flex gap-3 overflow-x-auto pb-3">
-            {categories.map((category) => (
+            {sortedCategories.map((category) => (
               <div
                 key={category.id}
                 className={`flex shrink-0 items-center rounded-xl border text-sm font-semibold transition ${selectedCategory === category.id ? "border-blue-500 bg-slate-800 text-blue-300" : "border-slate-800 bg-slate-950 text-slate-400"}`}
