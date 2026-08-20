@@ -99,8 +99,36 @@ function CompactDateInput({ value, onChange, min, label }) {
 
 function SubscriptionLockScreen({ onSignOut }) {
   return (
-    <main className="flex min-h-screen items-center justify-center bg-slate-950 px-4 py-8 text-slate-100">
-      <section className="w-full max-w-lg rounded-3xl border border-amber-500/30 bg-slate-900 p-6 text-center shadow-2xl shadow-amber-950/20 sm:p-8">
+    <main className="relative isolate flex min-h-screen items-center justify-center overflow-hidden bg-slate-950 px-4 py-8 text-slate-100">
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0 select-none blur-[6px] opacity-60"
+      >
+        <div className="flex h-full min-w-[720px] scale-105 bg-slate-900">
+          <aside className="w-64 shrink-0 border-r border-slate-800 bg-slate-950 p-6">
+            <div className="mb-8 h-20 rounded-lg bg-slate-800" />
+            <div className="space-y-3">
+              <div className="h-11 rounded-xl bg-blue-600/70" />
+              <div className="h-11 rounded-xl bg-slate-800" />
+            </div>
+          </aside>
+          <div className="flex-1 p-10">
+            <div className="mb-8 h-12 w-2/3 rounded-lg bg-slate-800" />
+            <div className="mb-5 grid grid-cols-2 gap-4">
+              <div className="h-32 rounded-2xl bg-slate-950" />
+              <div className="h-32 rounded-2xl bg-slate-950" />
+            </div>
+            <div className="space-y-3 rounded-2xl bg-slate-950 p-6">
+              <div className="h-12 rounded-xl bg-slate-800" />
+              <div className="h-12 rounded-xl bg-slate-800" />
+              <div className="h-12 rounded-xl bg-slate-800" />
+              <div className="h-12 rounded-xl bg-slate-800" />
+            </div>
+          </div>
+        </div>
+      </div>
+      <div className="absolute inset-0 bg-slate-950/65" />
+      <section className="relative z-10 w-full max-w-lg rounded-3xl border border-amber-500/30 bg-slate-900/95 p-6 text-center shadow-2xl shadow-amber-950/20 backdrop-blur sm:p-8">
         <AlertTriangle className="mx-auto text-amber-300" size={42} />
         <h1 className="mt-5 text-2xl font-bold text-white">
           Tu suscripción no está activa
