@@ -7,3 +7,9 @@
 	max-width: 100%;
 	box-sizing: border-box;
 }
+
+@media (max-width: 767px) {
+	.ios-date-input {
+		width: calc(100% - 1rem);
+	}
+}

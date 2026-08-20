@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { supabase } from "./lib/supabase";
 import {
   AlertTriangle,
@@ -48,6 +48,35 @@ function daysUntil(dateString) {
   const difference =
     new Date(`${dateString}T00:00:00`) - new Date(`${todayString()}T00:00:00`);
   return Math.ceil(difference / 86400000);
+}
+
+function CompactDateInput({ value, onChange, min, label }) {
+  const inputRef = useRef(null);
+  const formattedDate = value
+    ? new Intl.DateTimeFormat("es", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+      }).format(new Date(`${value}T00:00:00`))
+    : "Elegir fecha";
+
+  return (
+    <div className="relative min-w-0">
+      <input
+        ref={inputRef}
+        className="absolute inset-0 z-10 h-full w-full cursor-pointer opacity-0"
+        type="date"
+        min={min}
+        value={value}
+        aria-label={label}
+        onChange={onChange}
+      />
+      <div className="flex h-full min-h-10 min-w-0 items-center gap-2 rounded-lg border border-slate-800 bg-slate-950 px-3 text-sm text-slate-100">
+        <Calendar className="shrink-0 text-blue-400" size={17} />
+        <span className="truncate">{formattedDate}</span>
+      </div>
+    </div>
+  );
 }
 
 export default function App() {
@@ -123,6 +152,9 @@ export default function App() {
   async function addTask(event) {
     event.preventDefault();
     if (!newTask.title.trim() || !newTask.due_date || !selectedCategory) return;
+    if (newTask.due_date < todayString()) {
+      return showNotice("La fecha no puede ser anterior a hoy.");
+    }
     const { data, error } = await supabase
       .from("tasks")
       .insert([
@@ -168,6 +200,9 @@ export default function App() {
   async function saveEdit(event, id) {
     event.preventDefault();
     if (!editForm.title.trim() || !editForm.due_date) return;
+    if (editForm.due_date < todayString()) {
+      return showNotice("La fecha no puede ser anterior a hoy.");
+    }
     const { error } = await supabase
       .from("tasks")
       .update({ ...editForm, title: editForm.title.trim() })
@@ -404,13 +439,13 @@ export default function App() {
                       setNewTask({ ...newTask, title: event.target.value })
                     }
                   />
-                  <input
-                    className={`${inputClass} ios-date-input`}
-                    type="date"
+                  <CompactDateInput
                     value={newTask.due_date}
                     onChange={(event) =>
                       setNewTask({ ...newTask, due_date: event.target.value })
                     }
+                    min={todayString()}
+                    label="Fecha de entrega"
                   />
                   <select
                     className={inputClass}
@@ -459,9 +494,7 @@ export default function App() {
                               })
                             }
                           />
-                          <input
-                            className={`${inputClass} ios-date-input`}
-                            type="date"
+                          <CompactDateInput
                             value={editForm.due_date}
                             onChange={(event) =>
                               setEditForm({
@@ -469,6 +502,8 @@ export default function App() {
                                 due_date: event.target.value,
                               })
                             }
+                            min={todayString()}
+                            label="Fecha de entrega"
                           />
                           <select
                             className={inputClass}
