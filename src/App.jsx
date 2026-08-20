@@ -12,6 +12,7 @@ import {
   Edit3,
   FileText,
   GraduationCap,
+  KeyRound,
   LockKeyhole,
   LogOut,
   Mail,
@@ -36,6 +37,14 @@ const priorityStyles = {
   media: "border-amber-500/30 bg-amber-500/10 text-amber-300",
   baja: "border-emerald-500/30 bg-emerald-500/10 text-emerald-300",
 };
+
+const VALID_INVITE_CODES = ["VIP2026", "PROSTUDENT", "LAUNCH100"];
+const configuredInviteCode = import.meta.env.VITE_INVITE_CODE?.trim();
+const inviteCodes = configuredInviteCode
+  ? [configuredInviteCode]
+  : VALID_INVITE_CODES;
+const invitePurchaseUrl =
+  import.meta.env.VITE_INVITE_PURCHASE_URL || "https://wa.me/";
 
 const todayString = () => new Date().toISOString().slice(0, 10);
 
@@ -86,6 +95,7 @@ function AuthScreen() {
   const [mode, setMode] = useState("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [inviteCode, setInviteCode] = useState("");
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
@@ -99,6 +109,17 @@ function AuthScreen() {
     setMessage("");
     if (!email.trim() || (!isRecovery && !password)) {
       setError("Completa los campos requeridos.");
+      return;
+    }
+    if (
+      isRegister &&
+      !inviteCodes.some(
+        (code) => code.toUpperCase() === inviteCode.trim().toUpperCase(),
+      )
+    ) {
+      setError(
+        "Código de invitación no válido. Contacta al administrador para obtener tu acceso.",
+      );
       return;
     }
 
@@ -156,6 +177,31 @@ function AuthScreen() {
                 <LockKeyhole className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={17} />
                 <input type="password" autoComplete={isRegister ? "new-password" : "current-password"} value={password} onChange={(event) => setPassword(event.target.value)} className="w-full rounded-xl border border-slate-700 bg-slate-950 py-3 pl-10 pr-3 text-sm text-white outline-none transition focus:border-blue-500" placeholder="Mínimo 6 caracteres" minLength={6} />
               </div>
+            </label>
+          )}
+          {isRegister && (
+            <label className="block text-sm font-medium text-slate-300">
+              Código de Licencia / Invitación
+              <div className="relative mt-2">
+                <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={17} />
+                <input
+                  type="text"
+                  autoComplete="off"
+                  value={inviteCode}
+                  onChange={(event) => setInviteCode(event.target.value)}
+                  className="w-full rounded-xl border border-slate-700 bg-slate-950 py-3 pl-10 pr-3 text-sm uppercase tracking-wider text-white outline-none transition focus:border-blue-500"
+                  placeholder="Introduce tu código"
+                  required
+                />
+              </div>
+              <a
+                href={invitePurchaseUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-2 inline-block text-xs text-blue-300 hover:text-blue-200"
+              >
+                ¿No tienes un código? Adquiérelo aquí
+              </a>
             </label>
           )}
 
