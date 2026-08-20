@@ -405,7 +405,7 @@ export default function App() {
                     }
                   />
                   <input
-                    className={inputClass}
+                    className={`${inputClass} min-w-0 max-w-full`}
                     type="date"
                     value={newTask.due_date}
                     onChange={(event) =>
@@ -460,7 +460,7 @@ export default function App() {
                             }
                           />
                           <input
-                            className={inputClass}
+                            className={`${inputClass} min-w-0 max-w-full`}
                             type="date"
                             value={editForm.due_date}
                             onChange={(event) =>
