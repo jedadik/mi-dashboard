@@ -56,10 +56,21 @@ function startOfWeek(date) {
   return result;
 }
 
-function daysUntil(dateString) {
+function daysUntil(dateString, referenceDate = new Date()) {
   const difference =
-    new Date(`${dateString}T00:00:00`) - new Date(`${todayString()}T00:00:00`);
+    new Date(`${dateString}T00:00:00`) -
+    new Date(
+      `${referenceDate.getFullYear()}-${String(referenceDate.getMonth() + 1).padStart(2, "0")}-${String(referenceDate.getDate()).padStart(2, "0")}T00:00:00`,
+    );
   return Math.ceil(difference / 86400000);
+}
+
+function countdownLabel(dateString, referenceDate) {
+  const remainingDays = daysUntil(dateString, referenceDate);
+  if (remainingDays < 0) return "Vencida";
+  if (remainingDays === 0) return "Hoy";
+  if (remainingDays === 1) return "Mañana";
+  return `${remainingDays} días`;
 }
 
 function CompactDateInput({ value, onChange, min, label }) {
@@ -246,6 +257,7 @@ export default function App() {
     details: "",
   });
   const [expandedTaskId, setExpandedTaskId] = useState(null);
+  const [currentTime, setCurrentTime] = useState(() => new Date());
   const [notes, setNotes] = useState(() =>
     JSON.parse(localStorage.getItem("dashboard-notes") || "{}"),
   );
@@ -302,6 +314,11 @@ export default function App() {
 
     fetchDashboardData();
   }, [activeTab, session]);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setCurrentTime(new Date()), 60000);
+    return () => window.clearInterval(timer);
+  }, []);
 
   function showNotice(message) {
     setNotice(message);
@@ -651,11 +668,7 @@ export default function App() {
                       </p>
                     </div>
                     <span className="shrink-0 rounded-full bg-red-500 px-3 py-1 text-xs font-bold text-white">
-                      {daysUntil(criticalTask.due_date) < 0
-                        ? "Vencida"
-                        : daysUntil(criticalTask.due_date) === 0
-                          ? "Hoy"
-                          : `${daysUntil(criticalTask.due_date)} días`}
+                      {countdownLabel(criticalTask.due_date, currentTime)}
                     </span>
                   </div>
                 </div>
@@ -843,6 +856,15 @@ export default function App() {
                               <Clock3 size={13} />
                               {task.due_date}
                             </span>
+                            {!task.is_completed && task.due_date && (
+                              <span
+                                className={`inline-flex items-center gap-1 rounded-full border px-2 py-1 font-semibold ${daysUntil(task.due_date, currentTime) < 0 ? "border-red-500/30 bg-red-500/10 text-red-300" : daysUntil(task.due_date, currentTime) <= 1 ? "border-amber-500/30 bg-amber-500/10 text-amber-300" : "border-blue-500/30 bg-blue-500/10 text-blue-300"}`}
+                                title={`Cuenta regresiva: ${countdownLabel(task.due_date, currentTime)}`}
+                              >
+                                <Clock3 size={13} />
+                                {countdownLabel(task.due_date, currentTime)}
+                              </span>
+                            )}
                             <button
                               title="Editar tarea"
                               onClick={() => beginEdit(task)}
