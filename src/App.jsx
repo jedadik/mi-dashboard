@@ -283,8 +283,33 @@ function AuthScreen() {
               </div>
             </label>
           )}
-          {error && <p className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-300">{error}</p>}
-          {message && <p className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-300">{message}</p>}
+          {error && (
+            <p className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-300">
+              {error}
+            </p>
+          )}
+          {message && (
+            <div
+              role="status"
+              className="flex items-start gap-3 rounded-2xl border border-emerald-400/40 bg-emerald-500/15 px-4 py-4 text-left text-emerald-100 shadow-lg shadow-emerald-950/20"
+            >
+              <CheckCircle2 className="mt-0.5 shrink-0 text-emerald-300" size={24} />
+              <div>
+                {isRegister ? (
+                  <>
+                    <p className="text-base font-extrabold text-white">
+                      ¡Cuenta creada exitosamente!
+                    </p>
+                    <p className="mt-1 text-sm leading-5 text-emerald-200">
+                      Ahora inicia sesión para comenzar tus 5 días gratis.
+                    </p>
+                  </>
+                ) : (
+                  <p className="text-sm font-semibold">{message}</p>
+                )}
+              </div>
+            </div>
+          )}
           <button disabled={loading} className="flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 py-3 text-sm font-bold text-white transition hover:bg-blue-500 disabled:cursor-wait disabled:opacity-60">
             {loading ? "Procesando..." : isRecovery ? "Enviar enlace" : isRegister ? "Crear cuenta" : "Entrar"}
             {!loading && <ArrowRight size={17} />}
