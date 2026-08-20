@@ -129,10 +129,33 @@ function SubscriptionLockScreen({ onSignOut }) {
   );
 }
 
+function SubscriptionRenewalNotice({ daysRemaining }) {
+  return (
+    <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-500/25 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
+      <p className="flex items-center gap-2">
+        <Clock3 className="shrink-0 text-amber-300" size={17} />
+        <span>
+          Tu mensualidad vence en {daysRemaining} {daysRemaining === 1 ? "día" : "días"}.
+        </span>
+      </p>
+      <a
+        href={wompiCheckoutUrl}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="inline-flex items-center gap-1.5 rounded-lg bg-amber-300 px-3 py-2 text-xs font-bold text-slate-950 transition hover:bg-amber-200"
+      >
+        Renovar ahora
+        <ArrowRight size={14} />
+      </a>
+    </div>
+  );
+}
+
 function AuthScreen() {
   const [mode, setMode] = useState("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [passwordConfirmation, setPasswordConfirmation] = useState("");
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
@@ -148,6 +171,10 @@ function AuthScreen() {
       setError("Completa los campos requeridos.");
       return;
     }
+    if (isRegister && password !== passwordConfirmation) {
+      setError("Las contraseñas no coinciden.");
+      return;
+    }
     setLoading(true);
     const result = isRecovery
       ? await supabase.auth.resetPasswordForEmail(email.trim(), {
@@ -157,6 +184,9 @@ function AuthScreen() {
         ? await supabase.auth.signUp({
             email: email.trim(),
             password,
+            options: {
+              data: { trial_days: 5 },
+            },
           })
         : await supabase.auth.signInWithPassword({
             email: email.trim(),
@@ -170,8 +200,11 @@ function AuthScreen() {
     }
     if (isRecovery) {
       setMessage("Revisa tu correo para recuperar el acceso.");
-    } else if (isRegister && !result.data.session) {
-      setMessage("Cuenta creada. Revisa tu correo para confirmar el acceso.");
+    } else if (isRegister) {
+      if (result.data.session) await supabase.auth.signOut();
+      setMessage(
+        "¡Bienvenido! Tu cuenta fue creada. Ahora inicia sesión para comenzar tus 5 días gratis.",
+      );
     }
   }
 
@@ -201,6 +234,24 @@ function AuthScreen() {
               <div className="relative mt-2">
                 <LockKeyhole className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={17} />
                 <input type="password" autoComplete={isRegister ? "new-password" : "current-password"} value={password} onChange={(event) => setPassword(event.target.value)} className="w-full rounded-xl border border-slate-700 bg-slate-950 py-3 pl-10 pr-3 text-sm text-white outline-none transition focus:border-blue-500" placeholder="Mínimo 6 caracteres" minLength={6} />
+              </div>
+            </label>
+          )}
+          {isRegister && (
+            <label className="block text-sm font-medium text-slate-300">
+              Confirmar contraseña
+              <div className="relative mt-2">
+                <LockKeyhole className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={17} />
+                <input
+                  type="password"
+                  autoComplete="new-password"
+                  value={passwordConfirmation}
+                  onChange={(event) => setPasswordConfirmation(event.target.value)}
+                  className="w-full rounded-xl border border-slate-700 bg-slate-950 py-3 pl-10 pr-3 text-sm text-white outline-none transition focus:border-blue-500"
+                  placeholder="Repite tu contraseña"
+                  minLength={6}
+                  required
+                />
               </div>
             </label>
           )}
@@ -305,6 +356,18 @@ export default function App() {
     profile?.subscription_status === "active" &&
     profile?.subscription_end_date != null &&
     new Date(profile.subscription_end_date).getTime() > Date.now();
+  const subscriptionDaysRemaining = profile?.subscription_end_date
+    ? Math.ceil(
+        (new Date(profile.subscription_end_date).getTime() -
+          currentTime.getTime()) /
+          86400000,
+      )
+    : null;
+  const shouldShowRenewalNotice =
+    isSubscriptionValid &&
+    subscriptionDaysRemaining != null &&
+    subscriptionDaysRemaining >= 1 &&
+    subscriptionDaysRemaining <= 5;
 
   useEffect(() => {
     if (!session?.user?.id || !isSubscriptionValid) return;
@@ -629,6 +692,11 @@ export default function App() {
           </div>
         )}
         <header className="mb-8">
+          {shouldShowRenewalNotice && (
+            <SubscriptionRenewalNotice
+              daysRemaining={subscriptionDaysRemaining}
+            />
+          )}
           <p className="mb-2 text-xs font-bold uppercase tracking-[0.2em] text-blue-400">
             Panel de productividad
           </p>
