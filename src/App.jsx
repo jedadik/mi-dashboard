@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { supabase } from "./lib/supabase";
 import {
   AlertTriangle,
+  ArrowRight,
   Calendar,
   CheckCircle2,
   ChevronDown,
@@ -11,6 +12,9 @@ import {
   Edit3,
   FileText,
   GraduationCap,
+  LockKeyhole,
+  LogOut,
+  Mail,
   Plus,
   Save,
   Trash2,
@@ -78,7 +82,104 @@ function CompactDateInput({ value, onChange, min, label }) {
   );
 }
 
+function AuthScreen() {
+  const [mode, setMode] = useState("login");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
+
+  const isRecovery = mode === "recovery";
+  const isRegister = mode === "register";
+
+  async function handleSubmit(event) {
+    event.preventDefault();
+    setError("");
+    setMessage("");
+    if (!email.trim() || (!isRecovery && !password)) {
+      setError("Completa los campos requeridos.");
+      return;
+    }
+
+    setLoading(true);
+    const result = isRecovery
+      ? await supabase.auth.resetPasswordForEmail(email.trim(), {
+          redirectTo: window.location.origin,
+        })
+      : isRegister
+        ? await supabase.auth.signUp({
+            email: email.trim(),
+            password,
+          })
+        : await supabase.auth.signInWithPassword({
+            email: email.trim(),
+            password,
+          });
+    setLoading(false);
+
+    if (result.error) {
+      setError(result.error.message);
+      return;
+    }
+    if (isRecovery) {
+      setMessage("Revisa tu correo para recuperar el acceso.");
+    } else if (isRegister && !result.data.session) {
+      setMessage("Cuenta creada. Revisa tu correo para confirmar el acceso.");
+    }
+  }
+
+  return (
+    <main className="flex min-h-screen items-center justify-center overflow-hidden bg-slate-950 px-4 py-8 text-slate-100">
+      <section className="w-full max-w-md rounded-3xl border border-slate-800 bg-slate-900/90 p-6 shadow-2xl shadow-blue-950/30 sm:p-8">
+        <div className="mb-8 text-center">
+          <div className="mx-auto mb-5 h-16 w-44 overflow-hidden rounded-lg border border-slate-800 bg-slate-950 shadow-[0_0_24px_rgba(37,99,235,0.2)]">
+            <img src="/logo.png" alt="JEDAI" className="h-full w-full object-contain" />
+          </div>
+          <p className="text-xs font-bold uppercase tracking-[0.25em] text-blue-400">Tu espacio de enfoque</p>
+          <h1 className="mt-2 text-2xl font-bold text-white">{isRecovery ? "Recupera tu acceso" : isRegister ? "Crea tu cuenta" : "Bienvenido de nuevo"}</h1>
+          <p className="mt-2 text-sm text-slate-400">Organiza tus tareas y proyectos en un solo lugar.</p>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <label className="block text-sm font-medium text-slate-300">
+            Correo electrónico
+            <div className="relative mt-2">
+              <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={17} />
+              <input type="email" autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} className="w-full rounded-xl border border-slate-700 bg-slate-950 py-3 pl-10 pr-3 text-sm text-white outline-none transition focus:border-blue-500" placeholder="tu@email.com" />
+            </div>
+          </label>
+          {!isRecovery && (
+            <label className="block text-sm font-medium text-slate-300">
+              Contraseña
+              <div className="relative mt-2">
+                <LockKeyhole className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={17} />
+                <input type="password" autoComplete={isRegister ? "new-password" : "current-password"} value={password} onChange={(event) => setPassword(event.target.value)} className="w-full rounded-xl border border-slate-700 bg-slate-950 py-3 pl-10 pr-3 text-sm text-white outline-none transition focus:border-blue-500" placeholder="Mínimo 6 caracteres" minLength={6} />
+              </div>
+            </label>
+          )}
+
+          {error && <p className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-300">{error}</p>}
+          {message && <p className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-300">{message}</p>}
+          <button disabled={loading} className="flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 py-3 text-sm font-bold text-white transition hover:bg-blue-500 disabled:cursor-wait disabled:opacity-60">
+            {loading ? "Procesando..." : isRecovery ? "Enviar enlace" : isRegister ? "Crear cuenta" : "Entrar"}
+            {!loading && <ArrowRight size={17} />}
+          </button>
+        </form>
+
+        <div className="mt-6 space-y-3 text-center text-sm">
+          {!isRecovery && <button onClick={() => { setMode("recovery"); setError(""); setMessage(""); }} className="block w-full text-slate-400 hover:text-blue-300">¿Olvidaste tu contraseña?</button>}
+          <button onClick={() => { setMode(isRegister ? "login" : "register"); setError(""); setMessage(""); }} className="font-semibold text-blue-300 hover:text-blue-200">{isRegister ? "Ya tengo una cuenta" : "Crear una cuenta nueva"}</button>
+          {isRecovery && <button onClick={() => { setMode("login"); setError(""); setMessage(""); }} className="block w-full text-slate-400 hover:text-white">Volver a iniciar sesión</button>}
+        </div>
+      </section>
+    </main>
+  );
+}
+
 export default function App() {
+  const [session, setSession] = useState(null);
+  const [authLoading, setAuthLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("university");
   const [categories, setCategories] = useState([]);
   const [selectedCategory, setSelectedCategory] = useState(null);
@@ -105,16 +206,42 @@ export default function App() {
   const [notice, setNotice] = useState("");
 
   useEffect(() => {
+    let mounted = true;
+
+    supabase.auth.getSession().then(({ data }) => {
+      if (!mounted) return;
+      setSession(data.session);
+      setAuthLoading(false);
+    });
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+      setSession(nextSession);
+      setAuthLoading(false);
+    });
+
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!session?.user?.id) return;
+
     async function fetchDashboardData() {
       const [{ data: categoryData }, { data: taskData }] = await Promise.all([
         supabase
           .from("categories")
           .select("*")
+          .eq("user_id", session.user.id)
           .eq("type", activeTab)
           .order("name"),
         supabase
           .from("tasks")
           .select("*")
+          .eq("user_id", session.user.id)
           .order("due_date", { ascending: true }),
       ]);
       const nextCategories = categoryData || [];
@@ -128,7 +255,7 @@ export default function App() {
     }
 
     fetchDashboardData();
-  }, [activeTab]);
+  }, [activeTab, session]);
 
   function showNotice(message) {
     setNotice(message);
@@ -140,7 +267,7 @@ export default function App() {
     if (!newCatName.trim()) return;
     const { data, error } = await supabase
       .from("categories")
-      .insert([{ name: newCatName.trim(), type: activeTab }])
+      .insert([{ name: newCatName.trim(), type: activeTab, user_id: session.user.id }])
       .select();
     if (error) return showNotice("No se pudo crear la categoría.");
     setCategories((current) => [...current, data[0]]);
@@ -157,6 +284,7 @@ export default function App() {
     const { error: tasksError } = await supabase
       .from("tasks")
       .delete()
+      .eq("user_id", session.user.id)
       .eq("category_id", category.id);
     if (tasksError) {
       return showNotice(`No se pudo eliminar la asignatura: ${tasksError.message}`);
@@ -165,6 +293,7 @@ export default function App() {
     const { error: categoryError } = await supabase
       .from("categories")
       .delete()
+      .eq("user_id", session.user.id)
       .eq("id", category.id);
     if (categoryError) {
       return showNotice(`No se pudo eliminar la asignatura: ${categoryError.message}`);
@@ -196,6 +325,7 @@ export default function App() {
           ...newTask,
           title: newTask.title.trim(),
           category_id: selectedCategory,
+          user_id: session.user.id,
         },
       ])
       .select();
@@ -212,6 +342,7 @@ export default function App() {
     const { error } = await supabase
       .from("tasks")
       .update({ is_completed: nextValue })
+      .eq("user_id", session.user.id)
       .eq("id", task.id);
     if (error) return showNotice("No se pudo actualizar la tarea.");
     setTasks((current) =>
@@ -240,6 +371,7 @@ export default function App() {
     const { error } = await supabase
       .from("tasks")
       .update({ ...editForm, title: editForm.title.trim() })
+      .eq("user_id", session.user.id)
       .eq("id", id);
     if (error) return showNotice("No se pudo editar la tarea.");
     setTasks((current) =>
@@ -253,7 +385,11 @@ export default function App() {
   }
 
   async function deleteTask(id) {
-    const { error } = await supabase.from("tasks").delete().eq("id", id);
+    const { error } = await supabase
+      .from("tasks")
+      .delete()
+      .eq("user_id", session.user.id)
+      .eq("id", id);
     if (error) return showNotice("No se pudo eliminar la tarea.");
     setTasks((current) => current.filter((task) => task.id !== id));
   }
@@ -300,6 +436,21 @@ export default function App() {
   const inputClass =
     "w-full rounded-lg border border-slate-800 bg-slate-950 px-3 py-2 text-sm text-slate-100 outline-none focus:border-blue-500";
 
+  async function signOut() {
+    const { error } = await supabase.auth.signOut();
+    if (error) showNotice(`No se pudo cerrar la sesión: ${error.message}`);
+  }
+
+  if (authLoading) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-slate-950 text-sm text-slate-400">
+        Comprobando sesión...
+      </main>
+    );
+  }
+
+  if (!session) return <AuthScreen />;
+
   return (
     <div className="min-h-screen w-full overflow-x-hidden bg-slate-900 text-slate-100 md:flex">
       <aside className="border-b border-slate-800 bg-slate-950 p-4 md:min-h-screen md:w-64 md:shrink-0 md:border-b-0 md:border-r md:p-6">
@@ -330,6 +481,18 @@ export default function App() {
             </button>
           ))}
         </nav>
+        <div className="mt-6 border-t border-slate-800 pt-5">
+          <p className="mb-3 truncate px-2 text-xs text-slate-500" title={session.user.email}>
+            {session.user.email}
+          </p>
+          <button
+            onClick={signOut}
+            className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-sm font-medium text-slate-400 transition hover:bg-red-500/10 hover:text-red-300"
+          >
+            <LogOut size={19} />
+            Cerrar sesión
+          </button>
+        </div>
       </aside>
 
       <main className="mx-auto min-w-0 w-full max-w-6xl flex-1 p-4 sm:p-5 md:p-10">
