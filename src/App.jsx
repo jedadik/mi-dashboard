@@ -70,9 +70,14 @@ function countdownLabel(dateString, referenceDate) {
   return `${remainingDays} días`;
 }
 
-function CompactDateInput({ value, onChange, min, label }) {
+function CompactDateInput({ value, onChange, min, label, hint }) {
   return (
     <div className="relative min-w-0">
+      {hint && (
+        <span className="pointer-events-none absolute -top-4 left-1 text-[11px] font-medium text-slate-400">
+          {hint}
+        </span>
+      )}
       <Calendar
         aria-hidden="true"
         className="pointer-events-none absolute left-3 top-1/2 z-10 -translate-y-1/2 text-jedadi-blue"
@@ -206,6 +211,40 @@ function SubscriptionRenewalNotice({ daysRemaining }) {
   );
 }
 
+function TrialNotice({ daysRemaining }) {
+  return (
+    <div className="mb-5 flex flex-wrap items-center justify-between gap-4 rounded-xl border border-jedadi-purple/35 bg-jedadi-purple/10 px-4 py-3 text-sm text-purple-100">
+      <div className="flex min-w-0 items-center gap-2">
+        <CheckCircle2 className="shrink-0 text-jedadi-purple" size={17} />
+        <p>
+          Tu prueba gratuita está activa: te quedan {daysRemaining} {daysRemaining === 1 ? "día" : "días"}.
+        </p>
+      </div>
+      <div className="flex w-full shrink-0 items-center gap-2 sm:w-auto">
+        <span className="hidden rounded-full bg-jedadi-purple/20 px-3 py-1 text-xs font-bold text-purple-200 lg:inline-flex">
+          10 días incluidos
+        </span>
+        <a
+          href={wompiMonthlyUrl || wompiCheckoutUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex flex-1 items-center justify-center rounded-lg border border-jedadi-blue/50 px-3 py-2 text-xs font-bold text-jedadi-blue transition hover:bg-jedadi-blue/10 sm:flex-none"
+        >
+          Mensual
+        </a>
+        <a
+          href={wompiAnnualUrl || wompiCheckoutUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex flex-1 items-center justify-center rounded-lg bg-jedadi-blue px-3 py-2 text-xs font-bold text-jedadi-dark transition hover:bg-cyan-300 sm:flex-none"
+        >
+          Anual
+        </a>
+      </div>
+    </div>
+  );
+}
+
 function BrandFooter() {
   return (
     <footer className="mt-10 flex items-center justify-center gap-3 border-t border-white/10 pt-5">
@@ -224,32 +263,50 @@ function BrandFooter() {
   );
 }
 
-function AuthScreen() {
-  const [mode, setMode] = useState("login");
+function AuthScreen({ initialMode = "login", onResetComplete }) {
+  const [pendingRegistrationNotice] = useState(() =>
+    sessionStorage.getItem("jedadi-registration-success"),
+  );
+  const [mode, setMode] = useState(initialMode);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [passwordConfirmation, setPasswordConfirmation] = useState("");
   const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState("");
+  const [message, setMessage] = useState(pendingRegistrationNotice || "");
   const [error, setError] = useState("");
+  const [registrationSuccess, setRegistrationSuccess] = useState(Boolean(pendingRegistrationNotice));
+
+  useEffect(() => {
+    if (pendingRegistrationNotice) {
+      sessionStorage.removeItem("jedadi-registration-success");
+    }
+  }, [pendingRegistrationNotice]);
 
   const isRecovery = mode === "recovery";
+  const isReset = mode === "reset";
   const isRegister = mode === "register";
 
   async function handleSubmit(event) {
     event.preventDefault();
     setError("");
     setMessage("");
-    if (!email.trim() || (!isRecovery && !password)) {
+    setRegistrationSuccess(false);
+    if (!isReset && (!email.trim() || (!isRecovery && !password))) {
       setError("Completa los campos requeridos.");
       return;
     }
-    if (isRegister && password !== passwordConfirmation) {
+    if ((isRegister || isReset) && password !== passwordConfirmation) {
       setError("Las contraseñas no coinciden.");
       return;
     }
+    if (isReset && password.length < 6) {
+      setError("La contraseña debe tener al menos 6 caracteres.");
+      return;
+    }
     setLoading(true);
-    const result = isRecovery
+    const result = isReset
+      ? await supabase.auth.updateUser({ password })
+      : isRecovery
       ? await supabase.auth.resetPasswordForEmail(email.trim(), {
           redirectTo: window.location.origin,
         })
@@ -258,7 +315,7 @@ function AuthScreen() {
             email: email.trim(),
             password,
             options: {
-              data: { trial_days: 5 },
+              data: { trial_days: 10 },
             },
           })
         : await supabase.auth.signInWithPassword({
@@ -273,11 +330,19 @@ function AuthScreen() {
     }
     if (isRecovery) {
       setMessage("Revisa tu correo para recuperar el acceso.");
+    } else if (isReset) {
+      setPassword("");
+      setPasswordConfirmation("");
+      onResetComplete?.();
+      setMode("login");
+      setMessage("Contraseña actualizada correctamente. Ya puedes iniciar sesión.");
     } else if (isRegister) {
+      const registrationMessage = "Tu cuenta fue creada. Inicia sesión para comenzar tus 10 días de prueba.";
+      sessionStorage.setItem("jedadi-registration-success", registrationMessage);
       if (result.data.session) await supabase.auth.signOut();
-      setMessage(
-        "¡Bienvenido! Tu cuenta fue creada. Ahora inicia sesión para comenzar tus 5 días gratis.",
-      );
+      setRegistrationSuccess(true);
+      setMessage(registrationMessage);
+      setMode("login");
     }
   }
 
@@ -289,18 +354,18 @@ function AuthScreen() {
             <img src="/logo.png" alt="JEDADI" className="jedadi-logo-glow h-full w-full object-contain" />
           </div>
           <p className="text-xs font-bold uppercase tracking-[0.25em] text-jedadi-blue">Tu espacio de enfoque</p>
-          <h1 className="mt-2 text-2xl font-bold text-white">{isRecovery ? "Recupera tu acceso" : isRegister ? "Crea tu cuenta" : "Bienvenido de nuevo"}</h1>
+          <h1 className="mt-2 text-2xl font-bold text-white">{isReset ? "Crea una nueva contraseña" : isRecovery ? "Recupera tu acceso" : isRegister ? "Crea tu cuenta" : "Bienvenido de nuevo"}</h1>
           <p className="mt-2 text-sm text-slate-400">Organiza tus tareas y proyectos en un solo lugar.</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          <label className="block text-sm font-medium text-slate-300">
+          {!isReset && <label className="block text-sm font-medium text-slate-300">
             Correo electrónico
             <div className="relative mt-2">
               <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={17} />
               <input type="email" autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} className="w-full rounded-xl border border-slate-700 bg-slate-950 py-3 pl-10 pr-3 text-sm text-white outline-none transition focus:border-jedadi-blue" placeholder="tu@email.com" />
             </div>
-          </label>
+          </label>}
           {!isRecovery && (
             <label className="block text-sm font-medium text-slate-300">
               Contraseña
@@ -310,7 +375,7 @@ function AuthScreen() {
               </div>
             </label>
           )}
-          {isRegister && (
+          {(isRegister || isReset) && (
             <label className="block text-sm font-medium text-slate-300">
               Confirmar contraseña
               <div className="relative mt-2">
@@ -321,7 +386,7 @@ function AuthScreen() {
                   value={passwordConfirmation}
                   onChange={(event) => setPasswordConfirmation(event.target.value)}
                   className="w-full rounded-xl border border-slate-700 bg-slate-950 py-3 pl-10 pr-3 text-sm text-white outline-none transition focus:border-jedadi-blue"
-                  placeholder="Repite tu contraseña"
+                  placeholder={isReset ? "Repite tu nueva contraseña" : "Repite tu contraseña"}
                   minLength={6}
                   required
                 />
@@ -340,13 +405,13 @@ function AuthScreen() {
             >
               <CheckCircle2 className="mt-0.5 shrink-0 text-emerald-300" size={24} />
               <div>
-                {isRegister ? (
+                {registrationSuccess ? (
                   <>
                     <p className="text-base font-extrabold text-white">
                       ¡Cuenta creada exitosamente!
                     </p>
                     <p className="mt-1 text-sm leading-5 text-emerald-200">
-                      Ahora inicia sesión para comenzar tus 5 días gratis.
+                      Inicia sesión ahora y disfruta tus 10 días de prueba gratis.
                     </p>
                   </>
                 ) : (
@@ -356,15 +421,15 @@ function AuthScreen() {
             </div>
           )}
           <button disabled={loading} className="flex w-full items-center justify-center gap-2 rounded-xl bg-jedadi-blue py-3 text-sm font-bold text-jedadi-dark transition hover:bg-cyan-300 disabled:cursor-wait disabled:opacity-60">
-            {loading ? "Procesando..." : isRecovery ? "Enviar enlace" : isRegister ? "Crear cuenta" : "Entrar"}
+            {loading ? "Procesando..." : isReset ? "Guardar nueva contraseña" : isRecovery ? "Enviar enlace" : isRegister ? "Crear cuenta" : "Entrar"}
             {!loading && <ArrowRight size={17} />}
           </button>
         </form>
 
         <div className="mt-6 space-y-3 text-center text-sm">
-          {!isRecovery && <button onClick={() => { setMode("recovery"); setError(""); setMessage(""); }} className="block w-full text-slate-400 hover:text-jedadi-blue">¿Olvidaste tu contraseña?</button>}
-          <button onClick={() => { setMode(isRegister ? "login" : "register"); setError(""); setMessage(""); }} className="font-semibold text-jedadi-blue hover:text-cyan-300">{isRegister ? "Ya tengo una cuenta" : "Crear una cuenta nueva"}</button>
-          {isRecovery && <button onClick={() => { setMode("login"); setError(""); setMessage(""); }} className="block w-full text-slate-400 hover:text-white">Volver a iniciar sesión</button>}
+          {!isRecovery && !isReset && <button onClick={() => { setMode("recovery"); setError(""); setMessage(""); }} className="block w-full text-slate-400 hover:text-jedadi-blue">¿Olvidaste tu contraseña?</button>}
+          {!isReset && <button onClick={() => { setMode(isRegister ? "login" : "register"); setError(""); setMessage(""); }} className="font-semibold text-jedadi-blue hover:text-cyan-300">{isRegister ? "Ya tengo una cuenta" : "Crear una cuenta nueva"}</button>}
+          {(isRecovery || isReset) && <button onClick={() => { setMode("login"); setError(""); setMessage(""); }} className="block w-full text-slate-400 hover:text-white">Volver a iniciar sesión</button>}
         </div>
         <BrandFooter />
       </section>
@@ -375,6 +440,9 @@ function AuthScreen() {
 export default function App() {
   const [session, setSession] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
+  const [isRecoverySession, setIsRecoverySession] = useState(() =>
+    window.location.hash.includes("type=recovery"),
+  );
   const [profile, setProfile] = useState(null);
   const [profileLoading, setProfileLoading] = useState(false);
   const [activeTab, setActiveTab] = useState("university");
@@ -415,8 +483,9 @@ export default function App() {
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+    } = supabase.auth.onAuthStateChange((event, nextSession) => {
       setSession(nextSession);
+      if (event === "PASSWORD_RECOVERY") setIsRecoverySession(true);
       setAuthLoading(false);
     });
 
@@ -456,7 +525,18 @@ export default function App() {
     profile?.subscription_status === "active" &&
     profile?.subscription_end_date != null &&
     new Date(profile.subscription_end_date).getTime() > Date.now();
-  const subscriptionDaysRemaining = profile?.subscription_end_date
+  const trialEndDate = session?.user?.created_at
+    ? new Date(new Date(session.user.created_at).getTime() + 10 * 86400000)
+    : null;
+  const trialDaysRemaining = trialEndDate
+    ? Math.ceil((trialEndDate.getTime() - currentTime.getTime()) / 86400000)
+    : 0;
+  const isTrialActive =
+    !isSubscriptionValid && trialEndDate != null && trialDaysRemaining > 0;
+  const hasAccess = isSubscriptionValid || isTrialActive;
+  const subscriptionDaysRemaining = isTrialActive
+    ? trialDaysRemaining
+    : profile?.subscription_end_date
     ? Math.ceil(
         (new Date(profile.subscription_end_date).getTime() -
           currentTime.getTime()) /
@@ -470,7 +550,7 @@ export default function App() {
     subscriptionDaysRemaining <= 5;
 
   useEffect(() => {
-    if (!session?.user?.id || !isSubscriptionValid) return;
+    if (!session?.user?.id || !hasAccess) return;
 
     async function fetchDashboardData() {
       const [{ data: categoryData }, { data: taskData }] = await Promise.all([
@@ -497,7 +577,7 @@ export default function App() {
     }
 
     fetchDashboardData();
-  }, [activeTab, isSubscriptionValid, session]);
+  }, [activeTab, hasAccess, session]);
 
   useEffect(() => {
     const timer = window.setInterval(() => setCurrentTime(new Date()), 60000);
@@ -758,6 +838,14 @@ export default function App() {
     );
   }
 
+  if (isRecoverySession && session) {
+    return (
+      <AuthScreen
+        initialMode="reset"
+        onResetComplete={() => setIsRecoverySession(false)}
+      />
+    );
+  }
   if (!session) return <AuthScreen />;
   if (profileLoading) {
     return (
@@ -766,7 +854,7 @@ export default function App() {
       </main>
     );
   }
-  if (!isSubscriptionValid) {
+  if (!hasAccess) {
     return <SubscriptionLockScreen onSignOut={signOut} />;
   }
 
@@ -851,6 +939,7 @@ export default function App() {
           </div>
         )}
         <header className="mb-8">
+          {isTrialActive && <TrialNotice daysRemaining={trialDaysRemaining} />}
           {shouldShowRenewalNotice && (
             <SubscriptionRenewalNotice
               daysRemaining={subscriptionDaysRemaining}
@@ -1033,6 +1122,7 @@ export default function App() {
                     }
                     min={todayString()}
                     label="Fecha de entrega"
+                    hint="Para cuándo es esta actividad"
                   />
                   <select
                     className={inputClass}
