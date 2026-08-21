@@ -24,6 +24,29 @@
     drop-shadow(0 0 12px rgba(168, 85, 247, 0.2));
 }
 
+.task-form-accordion {
+  max-height: 0;
+  overflow: hidden;
+  opacity: 0;
+  border-color: transparent;
+  padding-top: 0;
+  padding-bottom: 0;
+  pointer-events: none;
+  visibility: hidden;
+  transition: max-height 300ms ease, opacity 200ms ease, padding 300ms ease,
+    margin 300ms ease, visibility 300ms;
+}
+
+.task-form-accordion-open {
+  max-height: 30rem;
+  opacity: 1;
+  border-color: rgb(51 65 85);
+  padding-top: 0.75rem;
+  padding-bottom: 0.75rem;
+  pointer-events: auto;
+  visibility: visible;
+}
+
 
 .dashboard-scroll {
   scrollbar-width: none;

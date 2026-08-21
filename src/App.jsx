@@ -206,6 +206,24 @@ function SubscriptionRenewalNotice({ daysRemaining }) {
   );
 }
 
+function BrandFooter() {
+  return (
+    <footer className="mt-10 flex items-center justify-center gap-3 border-t border-white/10 pt-5">
+      <img
+        src="/emblem.png"
+        alt="Look always ahead"
+        className="jedadi-emblem-glow h-11 w-11 object-contain opacity-85"
+      />
+      <div className="text-left">
+        <p className="font-bold tracking-[0.18em] text-jedadi-blue">JEDADI</p>
+        <p className="mt-0.5 text-[10px] uppercase tracking-[0.14em] text-slate-500">
+          Look always ahead
+        </p>
+      </div>
+    </footer>
+  );
+}
+
 function AuthScreen() {
   const [mode, setMode] = useState("login");
   const [email, setEmail] = useState("");
@@ -348,6 +366,7 @@ function AuthScreen() {
           <button onClick={() => { setMode(isRegister ? "login" : "register"); setError(""); setMessage(""); }} className="font-semibold text-jedadi-blue hover:text-cyan-300">{isRegister ? "Ya tengo una cuenta" : "Crear una cuenta nueva"}</button>
           {isRecovery && <button onClick={() => { setMode("login"); setError(""); setMessage(""); }} className="block w-full text-slate-400 hover:text-white">Volver a iniciar sesión</button>}
         </div>
+        <BrandFooter />
       </section>
     </main>
   );
@@ -363,6 +382,7 @@ export default function App() {
   const [selectedCategory, setSelectedCategory] = useState(null);
   const [tasks, setTasks] = useState([]);
   const [filter, setFilter] = useState("all");
+  const [isTaskFormOpen, setIsTaskFormOpen] = useState(false);
   const [newCatName, setNewCatName] = useState("");
   const [newTask, setNewTask] = useState({
     title: "",
@@ -562,6 +582,7 @@ export default function App() {
     }
     setTasks((current) => [...current, data[0]]);
     setNewTask({ title: "", due_date: "", priority: "media", details: "" });
+    setIsTaskFormOpen(false);
   }
 
   async function toggleTask(task) {
@@ -666,6 +687,34 @@ export default function App() {
   const selectedName = categories.find(
     (category) => category.id === selectedCategory,
   )?.name;
+  const urgentCategoryId = categories.reduce((closestCategoryId, category) => {
+    const closestDueDate = tasks
+      .filter(
+        (task) =>
+          task.category_id === category.id &&
+          !task.is_completed &&
+          task.due_date &&
+          task.due_date >= todayString(),
+      )
+      .map((task) => task.due_date)
+      .sort()[0];
+    if (!closestDueDate) return closestCategoryId;
+    if (!closestCategoryId) return category.id;
+
+    const currentClosestDueDate = tasks
+      .filter(
+        (task) =>
+          task.category_id === closestCategoryId &&
+          !task.is_completed &&
+          task.due_date &&
+          task.due_date >= todayString(),
+      )
+      .map((task) => task.due_date)
+      .sort()[0];
+    return closestDueDate < currentClosestDueDate
+      ? category.id
+      : closestCategoryId;
+  }, null);
   const sortedCategories = [...categories].sort((firstCategory, secondCategory) => {
     const firstDueDate = tasks
       .filter(
@@ -723,8 +772,31 @@ export default function App() {
 
   return (
     <div className="min-h-screen w-full overflow-x-hidden bg-jedadi-dark text-slate-100 md:flex">
-      <aside className="border-b border-jedadi-blue/15 bg-jedadi-dark p-4 md:min-h-screen md:w-64 md:shrink-0 md:border-b-0 md:border-r md:p-6">
-        <div className="mb-8 flex items-center justify-center gap-3">
+      <nav className="relative flex h-16 items-center justify-center border-b border-jedadi-blue/15 bg-jedadi-dark px-4 md:hidden">
+        <img
+          src="/logo.png"
+          alt="JEDADI"
+          className="jedadi-logo-glow h-10 w-auto max-w-[175px] object-contain"
+        />
+      </nav>
+      <div className="flex items-center justify-between gap-3 border-b border-white/10 bg-jedadi-dark px-4 py-2.5 md:hidden">
+        <p
+          className="min-w-0 truncate text-xs text-slate-400"
+          title={session.user.email}
+        >
+          {session.user.email}
+        </p>
+        <button
+          type="button"
+          onClick={signOut}
+          className="flex shrink-0 items-center gap-1.5 rounded-lg px-2 py-1.5 text-xs font-semibold text-slate-400 transition hover:bg-red-500/10 hover:text-red-300"
+        >
+          <LogOut size={15} />
+          Salir
+        </button>
+      </div>
+      <aside className="hidden border-b border-jedadi-blue/15 bg-jedadi-dark p-4 md:flex md:min-h-screen md:w-64 md:shrink-0 md:flex-col md:border-b-0 md:border-r md:p-6">
+        <div className="flex items-center justify-center gap-3">
           <div className="relative flex h-16 w-44 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-jedadi-blue/20 bg-jedadi-dark shadow-[0_0_20px_rgba(19,191,255,0.14)] sm:h-[4.5rem] sm:w-48 md:h-20 md:w-52">
             <img
               src="/logo.png"
@@ -733,14 +805,7 @@ export default function App() {
             />
           </div>
         </div>
-        <div className="mb-8 flex justify-center">
-          <img
-            src="/emblem.png"
-            alt="Look always ahead"
-            className="jedadi-emblem-glow h-20 w-20 object-contain"
-          />
-        </div>
-        <nav className="grid grid-cols-2 gap-2 md:block md:space-y-2">
+        <nav className="mt-8 grid grid-cols-2 gap-2 md:block md:space-y-2">
           {[
             ["university", GraduationCap, "Universidad"],
             ["personal", User, "Proyectos / Vida"],
@@ -769,6 +834,13 @@ export default function App() {
             <LogOut size={19} />
             Cerrar sesión
           </button>
+        </div>
+        <div className="mt-auto flex justify-center border-t border-white/10 pt-6">
+          <img
+            src="/emblem.png"
+            alt="Look always ahead"
+            className="jedadi-emblem-glow h-16 w-16 object-contain opacity-80"
+          />
         </div>
       </aside>
 
@@ -802,16 +874,21 @@ export default function App() {
             {sortedCategories.map((category) => (
               <div
                 key={category.id}
-                className={`flex shrink-0 items-center rounded-xl border text-sm font-semibold transition ${selectedCategory === category.id ? "border-jedadi-blue bg-white/5 text-jedadi-blue" : "border-white/10 bg-jedadi-dark text-slate-400"}`}
+                className={`flex shrink-0 items-center rounded-xl border text-sm font-semibold transition ${urgentCategoryId === category.id ? "border-jedadi-orange bg-jedadi-orange/10 text-jedadi-orange shadow-[0_0_18px_rgba(255,138,0,0.16)]" : selectedCategory === category.id ? "border-jedadi-blue bg-white/5 text-jedadi-blue" : "border-white/10 bg-jedadi-dark text-slate-400"}`}
               >
                 <button
                   onClick={() => {
                     setSelectedCategory(category.id);
                     setFilter("all");
                   }}
-                  className="px-4 py-3 hover:text-jedadi-blue"
+                  className="flex items-center gap-2 px-4 py-3 hover:text-jedadi-blue"
                 >
                   {category.name}
+                  {urgentCategoryId === category.id && (
+                    <span className="rounded-full bg-jedadi-orange/15 px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-jedadi-orange">
+                      ⚠️ Próxima
+                    </span>
+                  )}
                 </button>
                 <button
                   type="button"
@@ -918,9 +995,28 @@ export default function App() {
                     ))}
                   </div>
                 </div>
+                <button
+                  type="button"
+                  aria-expanded={isTaskFormOpen}
+                  onClick={() => setIsTaskFormOpen((current) => !current)}
+                  className="mb-3 flex w-full items-center justify-between rounded-xl border border-jedadi-blue/20 bg-jedadi-blue/5 px-4 py-3 text-left text-sm font-bold text-jedadi-blue transition hover:border-jedadi-blue/50 hover:bg-jedadi-blue/10"
+                >
+                  <span className="flex items-center gap-2">
+                    <Plus
+                      size={17}
+                      className={`transition-transform duration-300 ${isTaskFormOpen ? "rotate-45" : ""}`}
+                    />
+                    Añadir tarea
+                  </span>
+                  <ChevronDown
+                    size={17}
+                    className={`transition-transform duration-300 ${isTaskFormOpen ? "rotate-180" : ""}`}
+                  />
+                </button>
                 <form
                   onSubmit={addTask}
-                  className="mb-6 grid min-w-0 grid-cols-1 gap-3 rounded-xl border border-slate-800 bg-slate-900 p-3 sm:p-4 md:grid-cols-[minmax(0,1fr)_150px_120px_auto]"
+                  className={`task-form-accordion grid min-w-0 grid-cols-1 gap-3 rounded-xl border border-slate-800 bg-slate-900 p-3 sm:p-4 md:grid-cols-[minmax(0,1fr)_150px_120px_auto] ${isTaskFormOpen ? "task-form-accordion-open mb-6" : ""}`}
+                  aria-hidden={!isTaskFormOpen}
                 >
                   <input
                     className={inputClass}
@@ -1139,26 +1235,33 @@ export default function App() {
                 </div>
               </section>
               <aside className="rounded-2xl border border-slate-800 bg-slate-950 p-5">
-                <h3 className="mb-1 flex items-center gap-2 font-bold">
-                  <Edit3 size={17} className="text-amber-300" />
-                  Notas rápidas
-                </h3>
-                <p className="mb-4 text-xs text-slate-500">
-                  Guardadas localmente para {selectedName}.
-                </p>
+                <div className="mb-4 flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <h3 className="mb-1 flex items-center gap-2 font-bold">
+                      <Edit3 size={17} className="text-amber-300" />
+                      Notas rápidas
+                    </h3>
+                    <p className="text-xs text-slate-500">
+                      Guardadas localmente para {selectedName}.
+                    </p>
+                  </div>
+                  <img
+                    src="/emblem.png"
+                    alt="Look always ahead"
+                    className="jedadi-emblem-glow h-11 w-11 shrink-0 object-contain opacity-80 md:hidden"
+                  />
+                </div>
                 <textarea
                   value={notes[selectedCategory] || ""}
                   onChange={(event) => updateNotes(event.target.value)}
                   className={`${inputClass} min-h-64 resize-y leading-6`}
                   placeholder="Escribe ideas, enlaces o apuntes..."
                 />
-                <p className="mt-2 text-right text-xs text-slate-600">
-                  Markdown / texto
-                </p>
               </aside>
             </div>
           </>
         )}
+        <BrandFooter />
       </main>
     </div>
   );
