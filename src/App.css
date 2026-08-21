@@ -1,3 +1,30 @@
+@layer base {
+  :root {
+    --jedadi-dark: #0B0F19;
+    --jedadi-blue: #13BFFF;
+    --jedadi-purple: #A855F7;
+    --jedadi-orange: #FF8A00;
+    --jedadi-green: #22C55E;
+    --jedadi-gray: #9CA3AF;
+  }
+
+  body {
+    background: var(--jedadi-dark);
+    color: #F8FAFC;
+  }
+}
+
+.jedadi-logo-glow {
+  filter: drop-shadow(0 0 8px rgba(19, 191, 255, 0.32))
+    drop-shadow(0 0 14px rgba(168, 85, 247, 0.18));
+}
+
+.jedadi-emblem-glow {
+  filter: drop-shadow(0 0 7px rgba(19, 191, 255, 0.26))
+    drop-shadow(0 0 12px rgba(168, 85, 247, 0.2));
+}
+
+
 .dashboard-scroll {
   scrollbar-width: none;
 }

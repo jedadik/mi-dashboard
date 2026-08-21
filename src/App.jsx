@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { supabase } from "./lib/supabase";
 import {
   AlertTriangle,
@@ -71,30 +71,21 @@ function countdownLabel(dateString, referenceDate) {
 }
 
 function CompactDateInput({ value, onChange, min, label }) {
-  const inputRef = useRef(null);
-  const formattedDate = value
-    ? new Intl.DateTimeFormat("es", {
-        day: "2-digit",
-        month: "short",
-        year: "numeric",
-      }).format(new Date(`${value}T00:00:00`))
-    : "Elegir fecha";
-
   return (
     <div className="relative min-w-0">
+      <Calendar
+        aria-hidden="true"
+        className="pointer-events-none absolute left-3 top-1/2 z-10 -translate-y-1/2 text-jedadi-blue"
+        size={17}
+      />
       <input
-        ref={inputRef}
-        className="absolute inset-0 z-10 h-full w-full cursor-pointer opacity-0"
+        className="h-full min-h-10 w-full min-w-0 appearance-none rounded-lg border border-white/10 bg-jedadi-dark px-3 pl-10 text-sm text-slate-100 outline-none transition focus:border-jedadi-blue focus:ring-1 focus:ring-jedadi-blue/30 [color-scheme:dark]"
         type="date"
         min={min}
         value={value}
         aria-label={label}
         onChange={onChange}
       />
-      <div className="flex h-full min-h-10 min-w-0 items-center gap-2 rounded-lg border border-slate-800 bg-slate-950 px-3 text-sm text-slate-100">
-        <Calendar className="shrink-0 text-blue-400" size={17} />
-        <span className="truncate">{formattedDate}</span>
-      </div>
     </div>
   );
 }
@@ -110,7 +101,7 @@ function SubscriptionLockScreen({ onSignOut }) {
           <aside className="w-64 shrink-0 border-r border-slate-800 bg-slate-950 p-6">
             <div className="mb-8 h-20 rounded-lg bg-slate-800" />
             <div className="space-y-3">
-              <div className="h-11 rounded-xl bg-blue-600/70" />
+              <div className="h-11 rounded-xl bg-jedadi-blue/70" />
               <div className="h-11 rounded-xl bg-slate-800" />
             </div>
           </aside>
@@ -140,7 +131,7 @@ function SubscriptionLockScreen({ onSignOut }) {
         </p>
         <div className="mt-7 grid gap-4 text-left md:grid-cols-2">
           <article className="flex flex-col rounded-2xl border border-slate-700 bg-slate-950/80 p-5">
-            <p className="text-xs font-bold uppercase tracking-[0.18em] text-blue-300">
+            <p className="text-xs font-bold uppercase tracking-[0.18em] text-jedadi-blue">
               Plan mensual
             </p>
             <h2 className="mt-3 text-3xl font-extrabold text-white">
@@ -151,7 +142,7 @@ function SubscriptionLockScreen({ onSignOut }) {
               href={wompiMonthlyUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="mt-6 inline-flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-5 py-3 text-sm font-bold text-white transition hover:bg-blue-500"
+              className="mt-6 inline-flex items-center justify-center gap-2 rounded-xl bg-jedadi-blue px-5 py-3 text-sm font-bold text-jedadi-dark transition hover:bg-cyan-300"
             >
               Elegir plan mensual
               <ArrowRight size={17} />
@@ -273,13 +264,13 @@ function AuthScreen() {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center overflow-hidden bg-slate-950 px-4 py-8 text-slate-100">
-      <section className="w-full max-w-md rounded-3xl border border-slate-800 bg-slate-900/90 p-6 shadow-2xl shadow-blue-950/30 sm:p-8">
+    <main className="flex min-h-screen items-center justify-center overflow-hidden bg-jedadi-dark px-4 py-8 text-slate-100">
+      <section className="w-full max-w-md rounded-3xl border border-jedadi-blue/20 bg-slate-900/90 p-6 shadow-2xl shadow-jedadi-blue/10 sm:p-8">
         <div className="mb-8 text-center">
-          <div className="mx-auto mb-5 h-16 w-44 overflow-hidden rounded-lg border border-slate-800 bg-slate-950 shadow-[0_0_24px_rgba(37,99,235,0.2)]">
-            <img src="/logo.png" alt="JEDAI" className="h-full w-full object-contain" />
+          <div className="mx-auto mb-5 h-16 w-44 overflow-hidden rounded-lg border border-jedadi-blue/20 bg-jedadi-dark shadow-[0_0_24px_rgba(19,191,255,0.16)]">
+            <img src="/logo.png" alt="JEDADI" className="jedadi-logo-glow h-full w-full object-contain" />
           </div>
-          <p className="text-xs font-bold uppercase tracking-[0.25em] text-blue-400">Tu espacio de enfoque</p>
+          <p className="text-xs font-bold uppercase tracking-[0.25em] text-jedadi-blue">Tu espacio de enfoque</p>
           <h1 className="mt-2 text-2xl font-bold text-white">{isRecovery ? "Recupera tu acceso" : isRegister ? "Crea tu cuenta" : "Bienvenido de nuevo"}</h1>
           <p className="mt-2 text-sm text-slate-400">Organiza tus tareas y proyectos en un solo lugar.</p>
         </div>
@@ -289,7 +280,7 @@ function AuthScreen() {
             Correo electrónico
             <div className="relative mt-2">
               <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={17} />
-              <input type="email" autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} className="w-full rounded-xl border border-slate-700 bg-slate-950 py-3 pl-10 pr-3 text-sm text-white outline-none transition focus:border-blue-500" placeholder="tu@email.com" />
+              <input type="email" autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} className="w-full rounded-xl border border-slate-700 bg-slate-950 py-3 pl-10 pr-3 text-sm text-white outline-none transition focus:border-jedadi-blue" placeholder="tu@email.com" />
             </div>
           </label>
           {!isRecovery && (
@@ -297,7 +288,7 @@ function AuthScreen() {
               Contraseña
               <div className="relative mt-2">
                 <LockKeyhole className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={17} />
-                <input type="password" autoComplete={isRegister ? "new-password" : "current-password"} value={password} onChange={(event) => setPassword(event.target.value)} className="w-full rounded-xl border border-slate-700 bg-slate-950 py-3 pl-10 pr-3 text-sm text-white outline-none transition focus:border-blue-500" placeholder="Mínimo 6 caracteres" minLength={6} />
+                <input type="password" autoComplete={isRegister ? "new-password" : "current-password"} value={password} onChange={(event) => setPassword(event.target.value)} className="w-full rounded-xl border border-slate-700 bg-slate-950 py-3 pl-10 pr-3 text-sm text-white outline-none transition focus:border-jedadi-blue" placeholder="Mínimo 6 caracteres" minLength={6} />
               </div>
             </label>
           )}
@@ -311,7 +302,7 @@ function AuthScreen() {
                   autoComplete="new-password"
                   value={passwordConfirmation}
                   onChange={(event) => setPasswordConfirmation(event.target.value)}
-                  className="w-full rounded-xl border border-slate-700 bg-slate-950 py-3 pl-10 pr-3 text-sm text-white outline-none transition focus:border-blue-500"
+                  className="w-full rounded-xl border border-slate-700 bg-slate-950 py-3 pl-10 pr-3 text-sm text-white outline-none transition focus:border-jedadi-blue"
                   placeholder="Repite tu contraseña"
                   minLength={6}
                   required
@@ -346,15 +337,15 @@ function AuthScreen() {
               </div>
             </div>
           )}
-          <button disabled={loading} className="flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 py-3 text-sm font-bold text-white transition hover:bg-blue-500 disabled:cursor-wait disabled:opacity-60">
+          <button disabled={loading} className="flex w-full items-center justify-center gap-2 rounded-xl bg-jedadi-blue py-3 text-sm font-bold text-jedadi-dark transition hover:bg-cyan-300 disabled:cursor-wait disabled:opacity-60">
             {loading ? "Procesando..." : isRecovery ? "Enviar enlace" : isRegister ? "Crear cuenta" : "Entrar"}
             {!loading && <ArrowRight size={17} />}
           </button>
         </form>
 
         <div className="mt-6 space-y-3 text-center text-sm">
-          {!isRecovery && <button onClick={() => { setMode("recovery"); setError(""); setMessage(""); }} className="block w-full text-slate-400 hover:text-blue-300">¿Olvidaste tu contraseña?</button>}
-          <button onClick={() => { setMode(isRegister ? "login" : "register"); setError(""); setMessage(""); }} className="font-semibold text-blue-300 hover:text-blue-200">{isRegister ? "Ya tengo una cuenta" : "Crear una cuenta nueva"}</button>
+          {!isRecovery && <button onClick={() => { setMode("recovery"); setError(""); setMessage(""); }} className="block w-full text-slate-400 hover:text-jedadi-blue">¿Olvidaste tu contraseña?</button>}
+          <button onClick={() => { setMode(isRegister ? "login" : "register"); setError(""); setMessage(""); }} className="font-semibold text-jedadi-blue hover:text-cyan-300">{isRegister ? "Ya tengo una cuenta" : "Crear una cuenta nueva"}</button>
           {isRecovery && <button onClick={() => { setMode("login"); setError(""); setMessage(""); }} className="block w-full text-slate-400 hover:text-white">Volver a iniciar sesión</button>}
         </div>
       </section>
@@ -703,7 +694,7 @@ export default function App() {
     return firstDueDate.localeCompare(secondDueDate);
   });
   const inputClass =
-    "w-full rounded-lg border border-slate-800 bg-slate-950 px-3 py-2 text-sm text-slate-100 outline-none focus:border-blue-500";
+    "w-full rounded-lg border border-white/10 bg-jedadi-dark px-3 py-2 text-sm text-slate-100 outline-none focus:border-jedadi-blue";
 
   async function signOut() {
     const { error } = await supabase.auth.signOut();
@@ -731,16 +722,23 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen w-full overflow-x-hidden bg-slate-900 text-slate-100 md:flex">
-      <aside className="border-b border-slate-800 bg-slate-950 p-4 md:min-h-screen md:w-64 md:shrink-0 md:border-b-0 md:border-r md:p-6">
+    <div className="min-h-screen w-full overflow-x-hidden bg-jedadi-dark text-slate-100 md:flex">
+      <aside className="border-b border-jedadi-blue/15 bg-jedadi-dark p-4 md:min-h-screen md:w-64 md:shrink-0 md:border-b-0 md:border-r md:p-6">
         <div className="mb-8 flex items-center justify-center gap-3">
-          <div className="relative flex h-16 w-44 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-slate-800 bg-slate-950 shadow-[0_0_20px_rgba(37,99,235,0.18)] sm:h-[4.5rem] sm:w-48 md:h-20 md:w-52">
+          <div className="relative flex h-16 w-44 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-jedadi-blue/20 bg-jedadi-dark shadow-[0_0_20px_rgba(19,191,255,0.14)] sm:h-[4.5rem] sm:w-48 md:h-20 md:w-52">
             <img
               src="/logo.png"
-              alt="JEDAI"
-              className="h-full w-full object-contain object-center"
+              alt="JEDADI"
+              className="jedadi-logo-glow h-full w-full object-contain object-center"
             />
           </div>
+        </div>
+        <div className="mb-8 flex justify-center">
+          <img
+            src="/emblem.png"
+            alt="Look always ahead"
+            className="jedadi-emblem-glow h-20 w-20 object-contain"
+          />
         </div>
         <nav className="grid grid-cols-2 gap-2 md:block md:space-y-2">
           {[
@@ -753,7 +751,7 @@ export default function App() {
                 setActiveTab(tab);
                 setFilter("all");
               }}
-              className={`flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-sm font-medium transition ${activeTab === tab ? (tab === "university" ? "bg-blue-600 text-white" : "bg-emerald-600 text-white") : "text-slate-400 hover:bg-slate-800"}`}
+              className={`flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-sm font-medium transition ${activeTab === tab ? (tab === "university" ? "bg-jedadi-blue text-jedadi-dark" : "bg-jedadi-green text-jedadi-dark") : "text-slate-400 hover:bg-white/5"}`}
             >
               <Icon size={19} />
               {label}
@@ -786,7 +784,7 @@ export default function App() {
               daysRemaining={subscriptionDaysRemaining}
             />
           )}
-          <p className="mb-2 text-xs font-bold uppercase tracking-[0.2em] text-blue-400">
+          <p className="mb-2 text-xs font-bold uppercase tracking-[0.2em] text-jedadi-blue">
             Panel de productividad
           </p>
           <h2 className="text-3xl font-extrabold text-white md:text-4xl">
@@ -804,14 +802,14 @@ export default function App() {
             {sortedCategories.map((category) => (
               <div
                 key={category.id}
-                className={`flex shrink-0 items-center rounded-xl border text-sm font-semibold transition ${selectedCategory === category.id ? "border-blue-500 bg-slate-800 text-blue-300" : "border-slate-800 bg-slate-950 text-slate-400"}`}
+                className={`flex shrink-0 items-center rounded-xl border text-sm font-semibold transition ${selectedCategory === category.id ? "border-jedadi-blue bg-white/5 text-jedadi-blue" : "border-white/10 bg-jedadi-dark text-slate-400"}`}
               >
                 <button
                   onClick={() => {
                     setSelectedCategory(category.id);
                     setFilter("all");
                   }}
-                  className="px-4 py-3 hover:text-blue-300"
+                  className="px-4 py-3 hover:text-jedadi-blue"
                 >
                   {category.name}
                 </button>
@@ -852,18 +850,18 @@ export default function App() {
         ) : (
           <>
             <section className="mb-5 grid gap-4 lg:grid-cols-[1fr_1.3fr]">
-              <div className="rounded-2xl border border-slate-800 bg-slate-950 p-5">
+              <div className="rounded-2xl border border-white/10 bg-jedadi-dark p-5">
                 <div className="mb-3 flex items-center justify-between">
                   <span className="text-sm font-semibold text-slate-300">
                     Progreso de {selectedName}
                   </span>
-                  <strong className="text-2xl text-emerald-400">
+                  <strong className="text-2xl text-jedadi-green">
                     {progress}%
                   </strong>
                 </div>
                 <div className="h-3 overflow-hidden rounded-full bg-slate-800">
                   <div
-                    className="h-full rounded-full bg-emerald-500 transition-all duration-700"
+                    className="h-full rounded-full bg-jedadi-green transition-all duration-700"
                     style={{ width: `${progress}%` }}
                   />
                 </div>
@@ -902,10 +900,10 @@ export default function App() {
             </section>
 
             <div className="grid min-w-0 gap-5 xl:grid-cols-[minmax(0,1fr)_300px]">
-              <section className="min-w-0 overflow-hidden rounded-2xl border border-slate-800 bg-slate-950 p-4 sm:p-5 md:p-6">
+              <section className="min-w-0 overflow-hidden rounded-2xl border border-white/10 bg-jedadi-dark p-4 sm:p-5 md:p-6">
                 <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
                   <h3 className="flex items-center gap-2 text-lg font-bold">
-                    <Calendar size={18} className="text-blue-400" />
+                        <Calendar size={18} className="text-jedadi-blue" />
                     Tareas
                   </h3>
                   <div className="dashboard-scroll flex max-w-full gap-1 overflow-x-auto rounded-lg bg-slate-900 p-1">
@@ -913,7 +911,7 @@ export default function App() {
                       <button
                         key={item.id}
                         onClick={() => setFilter(item.id)}
-                        className={`whitespace-nowrap rounded-md px-3 py-1.5 text-xs font-medium ${filter === item.id ? "bg-blue-600 text-white" : "text-slate-400 hover:text-white"}`}
+                        className={`whitespace-nowrap rounded-md px-3 py-1.5 text-xs font-medium ${filter === item.id ? "bg-jedadi-blue text-jedadi-dark" : "text-slate-400 hover:text-white"}`}
                       >
                         {item.label}
                       </button>
@@ -959,7 +957,7 @@ export default function App() {
                       setNewTask({ ...newTask, details: event.target.value })
                     }
                   />
-                  <button className="flex w-full items-center justify-center gap-1 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold hover:bg-blue-500 md:w-auto">
+                  <button className="flex w-full items-center justify-center gap-1 rounded-lg bg-jedadi-blue px-4 py-2 text-sm font-semibold text-jedadi-dark hover:bg-cyan-300 md:w-auto">
                     <Plus size={16} />
                     Añadir
                   </button>
@@ -975,7 +973,7 @@ export default function App() {
                         <form
                           key={task.id}
                           onSubmit={(event) => saveEdit(event, task.id)}
-                          className="grid min-w-0 grid-cols-1 gap-3 rounded-xl border border-blue-500/50 bg-slate-900 p-3 sm:p-4 md:grid-cols-[minmax(0,1fr)_150px_120px_auto]"
+                          className="grid min-w-0 grid-cols-1 gap-3 rounded-xl border border-jedadi-blue/50 bg-slate-900 p-3 sm:p-4 md:grid-cols-[minmax(0,1fr)_150px_120px_auto]"
                         >
                           <input
                             className={inputClass}
@@ -1079,7 +1077,7 @@ export default function App() {
                             </span>
                             {!task.is_completed && task.due_date && (
                               <span
-                                className={`inline-flex items-center gap-1 rounded-full border px-2 py-1 font-semibold ${daysUntil(task.due_date, currentTime) < 0 ? "border-red-500/30 bg-red-500/10 text-red-300" : daysUntil(task.due_date, currentTime) <= 1 ? "border-amber-500/30 bg-amber-500/10 text-amber-300" : "border-blue-500/30 bg-blue-500/10 text-blue-300"}`}
+                                className={`inline-flex items-center gap-1 rounded-full border px-2 py-1 font-semibold ${daysUntil(task.due_date, currentTime) < 0 ? "border-red-500/30 bg-red-500/10 text-red-300" : daysUntil(task.due_date, currentTime) <= 1 ? "border-amber-500/30 bg-amber-500/10 text-amber-300" : "border-jedadi-blue/30 bg-jedadi-blue/10 text-jedadi-blue"}`}
                                 title={`Cuenta regresiva: ${countdownLabel(task.due_date, currentTime)}`}
                               >
                                 <Clock3 size={13} />
@@ -1089,7 +1087,7 @@ export default function App() {
                             <button
                               title="Editar tarea"
                               onClick={() => beginEdit(task)}
-                              className="rounded-md p-1.5 text-slate-500 hover:bg-slate-800 hover:text-blue-300"
+                              className="rounded-md p-1.5 text-slate-500 hover:bg-slate-800 hover:text-jedadi-blue"
                             >
                               <Edit3 size={15} />
                             </button>
@@ -1111,7 +1109,7 @@ export default function App() {
                                     current === task.id ? null : task.id,
                                   )
                                 }
-                                className="mt-3 flex items-center gap-2 text-xs font-semibold text-blue-300 hover:text-blue-200"
+                                className="mt-3 flex items-center gap-2 text-xs font-semibold text-jedadi-blue hover:text-cyan-300"
                               >
                                 <FileText size={14} />
                                 {expandedTaskId === task.id
@@ -1124,7 +1122,7 @@ export default function App() {
                                 )}
                               </button>
                               {expandedTaskId === task.id && (
-                                <div className="mt-3 rounded-lg border border-blue-500/20 bg-slate-950 p-4 text-sm leading-6 text-slate-300">
+                                <div className="mt-3 rounded-lg border border-jedadi-blue/20 bg-slate-950 p-4 text-sm leading-6 text-slate-300">
                                   <p className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-500">
                                     <Wrench size={14} />
                                     Detalles de estudio

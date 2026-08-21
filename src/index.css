@@ -1,5 +1,14 @@
 @import "tailwindcss";
 
+@theme {
+	--color-jedadi-dark: #0B0F19;
+	--color-jedadi-blue: #13BFFF;
+	--color-jedadi-purple: #A855F7;
+	--color-jedadi-orange: #FF8A00;
+	--color-jedadi-green: #22C55E;
+	--color-jedadi-gray: #9CA3AF;
+}
+
 .ios-date-input {
 	display: block;
 	width: 100%;
