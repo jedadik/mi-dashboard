@@ -14,6 +14,7 @@ import {
   GraduationCap,
   LockKeyhole,
   LogOut,
+  LoaderCircle,
   Mail,
   Plus,
   Save,
@@ -28,14 +29,7 @@ const filters = [
   { id: "today", label: "Para hoy" },
   { id: "week", label: "Esta semana" },
   { id: "overdue", label: "Vencidas" },
-  { id: "completed", label: "Completadas" },
 ];
-
-const priorityStyles = {
-  alta: "border-red-500/30 bg-red-500/10 text-red-300",
-  media: "border-amber-500/30 bg-amber-500/10 text-amber-300",
-  baja: "border-emerald-500/30 bg-emerald-500/10 text-emerald-300",
-};
 
 const wompiCheckoutUrl =
   import.meta.env.VITE_WOMPI_CHECKOUT_URL ||
@@ -44,6 +38,9 @@ const wompiMonthlyUrl = import.meta.env.VITE_WOMPI_URL_MENSUAL;
 const wompiAnnualUrl = import.meta.env.VITE_WOMPI_URL_ANUAL;
 
 const todayString = () => new Date().toISOString().slice(0, 10);
+const AUTH_SESSION_STARTED_AT = "jedadi-auth-session-started-at";
+const AUTH_LAST_EMAIL = "jedadi-last-email";
+const AUTH_SESSION_MAX_AGE = 24 * 60 * 60 * 1000;
 
 function startOfWeek(date) {
   const result = new Date(date);
@@ -70,7 +67,7 @@ function countdownLabel(dateString, referenceDate) {
   return `${remainingDays} días`;
 }
 
-function CompactDateInput({ value, onChange, min, label, hint }) {
+function CompactDateInput({ value, onChange, min, label, hint, id, name }) {
   return (
     <div className="relative min-w-0">
       {hint && (
@@ -86,12 +83,25 @@ function CompactDateInput({ value, onChange, min, label, hint }) {
       <input
         className="h-full min-h-10 w-full min-w-0 appearance-none rounded-lg border border-white/10 bg-jedadi-dark px-3 pl-10 text-sm text-slate-100 outline-none transition focus:border-jedadi-blue focus:ring-1 focus:ring-jedadi-blue/30 [color-scheme:dark]"
         type="date"
+        id={id}
+        name={name}
         min={min}
         value={value}
         aria-label={label}
         onChange={onChange}
       />
     </div>
+  );
+}
+
+function LoadingState({ label }) {
+  return (
+    <main className="flex min-h-screen items-center justify-center bg-slate-950 text-sm text-slate-400">
+      <div className="flex items-center gap-3">
+        <LoaderCircle className="animate-spin text-jedadi-blue" size={20} />
+        <span>{label}</span>
+      </div>
+    </main>
   );
 }
 
@@ -268,7 +278,7 @@ function AuthScreen({ initialMode = "login", onResetComplete }) {
     sessionStorage.getItem("jedadi-registration-success"),
   );
   const [mode, setMode] = useState(initialMode);
-  const [email, setEmail] = useState("");
+  const [email, setEmail] = useState(() => localStorage.getItem(AUTH_LAST_EMAIL) || "");
   const [password, setPassword] = useState("");
   const [passwordConfirmation, setPasswordConfirmation] = useState("");
   const [loading, setLoading] = useState(false);
@@ -304,6 +314,9 @@ function AuthScreen({ initialMode = "login", onResetComplete }) {
       return;
     }
     setLoading(true);
+    if (!isReset && email.trim()) {
+      localStorage.setItem(AUTH_LAST_EMAIL, email.trim());
+    }
     const result = isReset
       ? await supabase.auth.updateUser({ password })
       : isRecovery
@@ -359,29 +372,31 @@ function AuthScreen({ initialMode = "login", onResetComplete }) {
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          {!isReset && <label className="block text-sm font-medium text-slate-300">
+          {!isReset && <label htmlFor="auth-email" className="block text-sm font-medium text-slate-300">
             Correo electrónico
             <div className="relative mt-2">
               <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={17} />
-              <input type="email" autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} className="w-full rounded-xl border border-slate-700 bg-slate-950 py-3 pl-10 pr-3 text-sm text-white outline-none transition focus:border-jedadi-blue" placeholder="tu@email.com" />
+              <input id="auth-email" name="email" type="email" autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} className="w-full rounded-xl border border-slate-700 bg-slate-950 py-3 pl-10 pr-3 text-sm text-white outline-none transition focus:border-jedadi-blue" placeholder="tu@email.com" />
             </div>
           </label>}
           {!isRecovery && (
-            <label className="block text-sm font-medium text-slate-300">
+            <label htmlFor="auth-password" className="block text-sm font-medium text-slate-300">
               Contraseña
               <div className="relative mt-2">
                 <LockKeyhole className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={17} />
-                <input type="password" autoComplete={isRegister ? "new-password" : "current-password"} value={password} onChange={(event) => setPassword(event.target.value)} className="w-full rounded-xl border border-slate-700 bg-slate-950 py-3 pl-10 pr-3 text-sm text-white outline-none transition focus:border-jedadi-blue" placeholder="Mínimo 6 caracteres" minLength={6} />
+                <input id="auth-password" name="password" type="password" autoComplete={isRegister ? "new-password" : "current-password"} value={password} onChange={(event) => setPassword(event.target.value)} className="w-full rounded-xl border border-slate-700 bg-slate-950 py-3 pl-10 pr-3 text-sm text-white outline-none transition focus:border-jedadi-blue" placeholder="Mínimo 6 caracteres" minLength={6} />
               </div>
             </label>
           )}
           {(isRegister || isReset) && (
-            <label className="block text-sm font-medium text-slate-300">
+            <label htmlFor="auth-password-confirmation" className="block text-sm font-medium text-slate-300">
               Confirmar contraseña
               <div className="relative mt-2">
                 <LockKeyhole className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={17} />
                 <input
                   type="password"
+                  id="auth-password-confirmation"
+                  name="passwordConfirmation"
                   autoComplete="new-password"
                   value={passwordConfirmation}
                   onChange={(event) => setPasswordConfirmation(event.target.value)}
@@ -445,12 +460,14 @@ export default function App() {
   );
   const [profile, setProfile] = useState(null);
   const [profileLoading, setProfileLoading] = useState(false);
+  const [dashboardLoading, setDashboardLoading] = useState(false);
   const [activeTab, setActiveTab] = useState("university");
   const [categories, setCategories] = useState([]);
   const [selectedCategory, setSelectedCategory] = useState(null);
   const [tasks, setTasks] = useState([]);
   const [filter, setFilter] = useState("all");
   const [isTaskFormOpen, setIsTaskFormOpen] = useState(false);
+  const [isCompletedTasksOpen, setIsCompletedTasksOpen] = useState(false);
   const [newCatName, setNewCatName] = useState("");
   const [newTask, setNewTask] = useState({
     title: "",
@@ -474,17 +491,64 @@ export default function App() {
 
   useEffect(() => {
     let mounted = true;
+    let handlingAuthFailure = false;
 
-    supabase.auth.getSession().then(({ data }) => {
+    function sessionIsExpired() {
+      const startedAt = Number(localStorage.getItem(AUTH_SESSION_STARTED_AT));
+      return startedAt > 0 && Date.now() - startedAt >= AUTH_SESSION_MAX_AGE;
+    }
+
+    function rememberSessionStart() {
+      if (!localStorage.getItem(AUTH_SESSION_STARTED_AT)) {
+        localStorage.setItem(AUTH_SESSION_STARTED_AT, String(Date.now()));
+      }
+    }
+
+    async function clearInvalidSession() {
+      if (handlingAuthFailure) return;
+      handlingAuthFailure = true;
+
+      setSession(null);
+      setProfile(null);
+      setAuthLoading(false);
+      setIsRecoverySession(false);
+      localStorage.removeItem(AUTH_SESSION_STARTED_AT);
+
+      await supabase.auth.signOut({ scope: "local" }).catch(() => undefined);
+      Object.keys(localStorage)
+        .filter((key) => key.startsWith("sb-"))
+        .forEach((key) => localStorage.removeItem(key));
+    }
+
+    supabase.auth.getSession().then(({ data, error }) => {
       if (!mounted) return;
+      if (error) return clearInvalidSession();
+      if (data.session && sessionIsExpired()) {
+        clearInvalidSession();
+        return;
+      }
+      if (data.session) rememberSessionStart();
       setSession(data.session);
       setAuthLoading(false);
+    }).catch(() => {
+      if (mounted) clearInvalidSession();
     });
 
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((event, nextSession) => {
+      if (event === "TOKEN_REFRESHED" && !nextSession) {
+        clearInvalidSession();
+        return;
+      }
+      if (nextSession && sessionIsExpired()) {
+        clearInvalidSession();
+        return;
+      }
+      if (nextSession) rememberSessionStart();
+      if (!nextSession) localStorage.removeItem(AUTH_SESSION_STARTED_AT);
       setSession(nextSession);
+      if (event === "SIGNED_OUT") setProfile(null);
       if (event === "PASSWORD_RECOVERY") setIsRecoverySession(true);
       setAuthLoading(false);
     });
@@ -553,27 +617,32 @@ export default function App() {
     if (!session?.user?.id || !hasAccess) return;
 
     async function fetchDashboardData() {
-      const [{ data: categoryData }, { data: taskData }] = await Promise.all([
-        supabase
-          .from("categories")
-          .select("*")
-          .eq("user_id", session.user.id)
-          .eq("type", activeTab)
-          .order("name"),
-        supabase
-          .from("tasks")
-          .select("*")
-          .eq("user_id", session.user.id)
-          .order("due_date", { ascending: true }),
-      ]);
-      const nextCategories = categoryData || [];
-      setCategories(nextCategories);
-      setTasks(taskData || []);
-      setSelectedCategory((current) =>
-        nextCategories.some((category) => category.id === current)
-          ? current
-          : nextCategories[0]?.id || null,
-      );
+      setDashboardLoading(true);
+      try {
+        const [{ data: categoryData }, { data: taskData }] = await Promise.all([
+          supabase
+            .from("categories")
+            .select("*")
+            .eq("user_id", session.user.id)
+            .eq("type", activeTab)
+            .order("name"),
+          supabase
+            .from("tasks")
+            .select("*")
+            .eq("user_id", session.user.id)
+            .order("due_date", { ascending: true }),
+        ]);
+        const nextCategories = categoryData || [];
+        setCategories(nextCategories);
+        setTasks(taskData || []);
+        setSelectedCategory((current) =>
+          nextCategories.some((category) => category.id === current)
+            ? current
+            : nextCategories[0]?.id || null,
+        );
+      } finally {
+        setDashboardLoading(false);
+      }
     }
 
     fetchDashboardData();
@@ -713,6 +782,9 @@ export default function App() {
   }
 
   async function deleteTask(id) {
+    if (!window.confirm("¿Eliminar esta tarea? Esta acción no se puede deshacer.")) {
+      return;
+    }
     const { error } = await supabase
       .from("tasks")
       .delete()
@@ -737,15 +809,23 @@ export default function App() {
   const progress = categoryTasks.length
     ? Math.round((completedCount / categoryTasks.length) * 100)
     : 0;
-  const criticalTask = categoryTasks
-    .filter(
-      (task) => !task.is_completed && task.priority === "alta" && task.due_date,
-    )
-    .sort((a, b) => a.due_date.localeCompare(b.due_date))[0];
+  const sortTasksByDueDate = (firstTask, secondTask) => {
+    if (!firstTask.due_date) return 1;
+    if (!secondTask.due_date) return -1;
+    return firstTask.due_date.localeCompare(secondTask.due_date);
+  };
+  const activeTasks = tasks.filter((task) => !task.is_completed);
+  const nextDueDate = activeTasks
+    .filter((task) => task.due_date)
+    .map((task) => task.due_date)
+    .sort()[0];
+  const nextDueTasks = nextDueDate
+    ? activeTasks.filter((task) => task.due_date === nextDueDate)
+    : activeTasks.slice(0, 1);
   const visibleTasks = categoryTasks
     .filter((task) => {
       const today = todayString();
-      if (filter === "completed") return task.is_completed;
+      if (task.is_completed) return false;
       if (filter === "overdue")
         return !task.is_completed && task.due_date < today;
       if (filter === "today") return task.due_date === today;
@@ -758,17 +838,17 @@ export default function App() {
       }
       return true;
     })
-    .sort((firstTask, secondTask) => {
-      if (!firstTask.due_date) return 1;
-      if (!secondTask.due_date) return -1;
-      return firstTask.due_date.localeCompare(secondTask.due_date);
-    });
+    .sort(sortTasksByDueDate);
+  const completedTasks = categoryTasks
+    .filter((task) => task.is_completed)
+    .sort(sortTasksByDueDate);
 
   const selectedName = categories.find(
     (category) => category.id === selectedCategory,
   )?.name;
-  const urgentCategoryId = categories.reduce((closestCategoryId, category) => {
-    const closestDueDate = tasks
+  const categoryDueDates = categories.map((category) => ({
+    categoryId: category.id,
+    dueDate: tasks
       .filter(
         (task) =>
           task.category_id === category.id &&
@@ -777,24 +857,17 @@ export default function App() {
           task.due_date >= todayString(),
       )
       .map((task) => task.due_date)
-      .sort()[0];
-    if (!closestDueDate) return closestCategoryId;
-    if (!closestCategoryId) return category.id;
-
-    const currentClosestDueDate = tasks
-      .filter(
-        (task) =>
-          task.category_id === closestCategoryId &&
-          !task.is_completed &&
-          task.due_date &&
-          task.due_date >= todayString(),
-      )
-      .map((task) => task.due_date)
-      .sort()[0];
-    return closestDueDate < currentClosestDueDate
-      ? category.id
-      : closestCategoryId;
-  }, null);
+      .sort()[0],
+  }));
+  const nearestCategoryDueDate = categoryDueDates
+    .map((item) => item.dueDate)
+    .filter(Boolean)
+    .sort()[0];
+  const urgentCategoryIds = new Set(
+    categoryDueDates
+      .filter((item) => item.dueDate === nearestCategoryDueDate)
+      .map((item) => item.categoryId),
+  );
   const sortedCategories = [...categories].sort((firstCategory, secondCategory) => {
     const firstDueDate = tasks
       .filter(
@@ -827,15 +900,12 @@ export default function App() {
 
   async function signOut() {
     const { error } = await supabase.auth.signOut();
+    localStorage.removeItem(AUTH_SESSION_STARTED_AT);
     if (error) showNotice(`No se pudo cerrar la sesión: ${error.message}`);
   }
 
   if (authLoading) {
-    return (
-      <main className="flex min-h-screen items-center justify-center bg-slate-950 text-sm text-slate-400">
-        Comprobando sesión...
-      </main>
-    );
+    return <LoadingState label="Comprobando sesión..." />;
   }
 
   if (isRecoverySession && session) {
@@ -848,11 +918,7 @@ export default function App() {
   }
   if (!session) return <AuthScreen />;
   if (profileLoading) {
-    return (
-      <main className="flex min-h-screen items-center justify-center bg-slate-950 text-sm text-slate-400">
-        Verificando suscripción...
-      </main>
-    );
+    return <LoadingState label="Verificando suscripción..." />;
   }
   if (!hasAccess) {
     return <SubscriptionLockScreen onSignOut={signOut} />;
@@ -932,7 +998,7 @@ export default function App() {
         </div>
       </aside>
 
-      <main className="mx-auto min-w-0 w-full max-w-6xl flex-1 p-4 sm:p-5 md:p-10">
+      <main className="mx-auto min-w-0 w-full max-w-full flex-1 overflow-hidden p-4 sm:p-5 md:p-10">
         {notice && (
           <div className="fixed right-5 top-5 z-10 rounded-lg border border-amber-500/30 bg-slate-800 px-4 py-3 text-sm text-amber-200 shadow-xl">
             {notice}
@@ -957,13 +1023,32 @@ export default function App() {
             Convierte tus pendientes en avances visibles.
           </p>
         </header>
+        <nav className="sticky top-0 z-10 mb-6 grid grid-cols-2 gap-2 rounded-xl border border-white/10 bg-jedadi-dark/95 p-1 backdrop-blur md:hidden">
+          {[
+            ["university", GraduationCap, "Asignaturas académicas"],
+            ["personal", User, "Personal"],
+          ].map(([tab, Icon, label]) => (
+            <button
+              key={tab}
+              type="button"
+              onClick={() => {
+                setActiveTab(tab);
+                setFilter("all");
+              }}
+              className={`flex min-w-0 items-center justify-center gap-2 rounded-lg px-2 py-2.5 text-xs font-semibold transition ${activeTab === tab ? (tab === "university" ? "bg-jedadi-blue text-jedadi-dark" : "bg-jedadi-green text-jedadi-dark") : "text-slate-400 hover:bg-white/5"}`}
+            >
+              <Icon size={16} />
+              <span className="truncate">{label}</span>
+            </button>
+          ))}
+        </nav>
 
         <section className="mb-8">
           <div className="dashboard-scroll flex gap-3 overflow-x-auto pb-3">
             {sortedCategories.map((category) => (
               <div
                 key={category.id}
-                className={`flex shrink-0 items-center rounded-xl border text-sm font-semibold transition ${urgentCategoryId === category.id ? "border-jedadi-orange bg-jedadi-orange/10 text-jedadi-orange shadow-[0_0_18px_rgba(255,138,0,0.16)]" : selectedCategory === category.id ? "border-jedadi-blue bg-white/5 text-jedadi-blue" : "border-white/10 bg-jedadi-dark text-slate-400"}`}
+                className={`flex shrink-0 items-center rounded-xl border text-sm font-semibold transition ${urgentCategoryIds.has(category.id) ? "border-jedadi-orange bg-jedadi-orange/10 text-jedadi-orange shadow-[0_0_18px_rgba(255,138,0,0.16)]" : selectedCategory === category.id ? "border-jedadi-blue bg-white/5 text-jedadi-blue" : "border-white/10 bg-jedadi-dark text-slate-400"}`}
               >
                 <button
                   onClick={() => {
@@ -973,7 +1058,7 @@ export default function App() {
                   className="flex items-center gap-2 px-4 py-3 hover:text-jedadi-blue"
                 >
                   {category.name}
-                  {urgentCategoryId === category.id && (
+                  {urgentCategoryIds.has(category.id) && (
                     <span className="rounded-full bg-jedadi-orange/15 px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-jedadi-orange">
                       ⚠️ Próxima
                     </span>
@@ -993,6 +1078,8 @@ export default function App() {
           </div>
           <form onSubmit={addCategory} className="flex max-w-md gap-2">
             <input
+              id="new-category-name"
+              name="categoryName"
               className={inputClass}
               placeholder={
                 activeTab === "university"
@@ -1009,14 +1096,21 @@ export default function App() {
           </form>
         </section>
 
-        {!selectedCategory ? (
+        {dashboardLoading ? (
+          <div className="flex min-h-52 items-center justify-center text-sm text-slate-400">
+            <div className="flex items-center gap-3">
+              <LoaderCircle className="animate-spin text-jedadi-blue" size={20} />
+              <span>Cargando tus actividades...</span>
+            </div>
+          </div>
+        ) : !selectedCategory ? (
           <p className="text-sm text-slate-500">
             Selecciona o crea una asignatura/proyecto para comenzar.
           </p>
         ) : (
           <>
-            <section className="mb-5 grid gap-4 lg:grid-cols-[1fr_1.3fr]">
-              <div className="rounded-2xl border border-white/10 bg-jedadi-dark p-5">
+            <section className="mb-5 grid w-full max-w-full gap-4 overflow-hidden lg:grid-cols-[1fr_1.3fr]">
+              <div className="w-full max-w-full overflow-hidden rounded-2xl border border-white/10 bg-jedadi-dark p-5">
                 <div className="mb-3 flex items-center justify-between">
                   <span className="text-sm font-semibold text-slate-300">
                     Progreso de {selectedName}
@@ -1025,9 +1119,9 @@ export default function App() {
                     {progress}%
                   </strong>
                 </div>
-                <div className="h-3 overflow-hidden rounded-full bg-slate-800">
+                <div className="h-3 w-full max-w-full overflow-hidden rounded-full bg-slate-800">
                   <div
-                    className="h-full rounded-full bg-jedadi-green transition-all duration-700"
+                    className="progress-fill h-full rounded-full transition-all duration-700"
                     style={{ width: `${progress}%` }}
                   />
                 </div>
@@ -1036,37 +1130,53 @@ export default function App() {
                   completadas de {categoryTasks.length} tareas
                 </p>
               </div>
-              {criticalTask ? (
-                <div className="rounded-2xl border border-red-500/30 bg-red-500/10 p-5">
-                  <div className="flex items-start justify-between gap-4">
-                    <div>
-                      <p className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-red-300">
-                        <AlertTriangle size={15} />
-                        Próximo vencimiento crítico
-                      </p>
-                      <h3 className="mt-2 font-bold text-white">
-                        {criticalTask.title}
-                      </h3>
-                      <p className="mt-1 flex items-center gap-2 text-sm text-red-200">
-                        <Calendar size={15} />
-                        {criticalTask.due_date}
-                      </p>
-                    </div>
-                    <span className="shrink-0 rounded-full bg-red-500 px-3 py-1 text-xs font-bold text-white">
-                      {countdownLabel(criticalTask.due_date, currentTime)}
+              {nextDueTasks.length > 0 ? (
+                <div className="w-full max-w-full space-y-2 overflow-hidden rounded-2xl border border-jedadi-orange/30 bg-jedadi-orange/10 p-2 text-sm text-orange-100">
+                  <p className="flex items-center gap-2 px-1 text-xs font-semibold text-jedadi-orange">
+                    <span aria-hidden="true">⌛</span>
+                    {nextDueTasks.length > 1 ? "Próximas entregas" : "Próxima entrega"}
+                  </p>
+                  {nextDueTasks.slice(0, 2).map((task) => {
+                    const subject = categories.find(
+                      (category) => category.id === task.category_id,
+                    )?.name;
+                    return (
+                      <div
+                        key={task.id}
+                        className="flex min-w-0 w-full max-w-full items-center gap-2 rounded-lg border border-jedadi-orange/20 bg-jedadi-dark/60 px-3 py-2"
+                      >
+                        <span className="min-w-0 flex-1 truncate font-bold text-white">
+                          {task.title}
+                        </span>
+                        {subject && (
+                          <span className="max-w-[28%] shrink-0 truncate text-orange-200">
+                            ({subject})
+                          </span>
+                        )}
+                        <span className="max-w-[34%] shrink-0 truncate text-xs text-orange-200">
+                          {nextDueDate
+                            ? countdownLabel(nextDueDate, currentTime)
+                            : "Sin fecha"}
+                        </span>
+                      </div>
+                    );
+                  })}
+                  {nextDueTasks.length > 2 && (
+                    <span className="ml-1 inline-block rounded-full bg-jedadi-orange/20 px-2 py-0.5 text-xs font-semibold text-orange-200">
+                      +{nextDueTasks.length - 2} más
                     </span>
-                  </div>
+                  )}
                 </div>
               ) : (
-                <div className="flex items-center gap-3 rounded-2xl border border-emerald-500/20 bg-emerald-500/10 p-5 text-sm text-emerald-200">
+                <div className="flex items-center gap-3 rounded-2xl border border-emerald-500/20 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-200">
                   <CheckCircle2 />
-                  No hay vencimientos críticos próximos.
+                  <span>Al día: No tienes entregas pendientes</span>
                 </div>
               )}
             </section>
 
-            <div className="grid min-w-0 gap-5 xl:grid-cols-[minmax(0,1fr)_300px]">
-              <section className="min-w-0 overflow-hidden rounded-2xl border border-white/10 bg-jedadi-dark p-4 sm:p-5 md:p-6">
+            <div className="grid w-full max-w-full min-w-0 gap-5 overflow-hidden xl:grid-cols-[minmax(0,1fr)_300px]">
+              <section className="w-full max-w-full min-w-0 overflow-hidden rounded-2xl border border-white/10 bg-jedadi-dark p-4 sm:p-5 md:p-6">
                 <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
                   <h3 className="flex items-center gap-2 text-lg font-bold">
                         <Calendar size={18} className="text-jedadi-blue" />
@@ -1105,9 +1215,10 @@ export default function App() {
                 <form
                   onSubmit={addTask}
                   className={`task-form-accordion grid min-w-0 grid-cols-1 gap-3 rounded-xl border border-slate-800 bg-slate-900 p-3 sm:p-4 md:grid-cols-[minmax(0,1fr)_150px_120px_auto] ${isTaskFormOpen ? "task-form-accordion-open mb-6" : ""}`}
-                  aria-hidden={!isTaskFormOpen}
                 >
                   <input
+                    id="new-task-title"
+                    name="taskTitle"
                     className={inputClass}
                     placeholder="¿Qué tienes que hacer?"
                     value={newTask.title}
@@ -1116,6 +1227,8 @@ export default function App() {
                     }
                   />
                   <CompactDateInput
+                    id="new-task-due-date"
+                    name="dueDate"
                     value={newTask.due_date}
                     onChange={(event) =>
                       setNewTask({ ...newTask, due_date: event.target.value })
@@ -1125,6 +1238,8 @@ export default function App() {
                     hint="Para cuándo es esta actividad"
                   />
                   <select
+                    id="new-task-priority"
+                    name="priority"
                     className={inputClass}
                     value={newTask.priority}
                     onChange={(event) =>
@@ -1136,6 +1251,8 @@ export default function App() {
                     <option value="baja">Prioridad baja</option>
                   </select>
                   <textarea
+                    id="new-task-details"
+                    name="details"
                     className={`${inputClass} min-h-20 resize-y md:col-span-3`}
                     placeholder="Detalles adicionales (herramientas, temas, instrucciones...)"
                     value={newTask.details}
@@ -1162,6 +1279,8 @@ export default function App() {
                           className="grid min-w-0 grid-cols-1 gap-3 rounded-xl border border-jedadi-blue/50 bg-slate-900 p-3 sm:p-4 md:grid-cols-[minmax(0,1fr)_150px_120px_auto]"
                         >
                           <input
+                            id={`edit-task-title-${task.id}`}
+                            name="taskTitle"
                             className={inputClass}
                             value={editForm.title}
                             onChange={(event) =>
@@ -1172,6 +1291,8 @@ export default function App() {
                             }
                           />
                           <CompactDateInput
+                            id={`edit-task-due-date-${task.id}`}
+                            name="dueDate"
                             value={editForm.due_date}
                             onChange={(event) =>
                               setEditForm({
@@ -1183,6 +1304,8 @@ export default function App() {
                             label="Fecha de entrega"
                           />
                           <select
+                            id={`edit-task-priority-${task.id}`}
+                            name="priority"
                             className={inputClass}
                             value={editForm.priority}
                             onChange={(event) =>
@@ -1197,6 +1320,8 @@ export default function App() {
                             <option value="baja">Baja</option>
                           </select>
                           <textarea
+                            id={`edit-task-details-${task.id}`}
+                            name="details"
                             className={`${inputClass} min-h-20 resize-y md:col-span-3`}
                             placeholder="Detalles adicionales..."
                             value={editForm.details}
@@ -1227,12 +1352,12 @@ export default function App() {
                       ) : (
                         <div
                           key={task.id}
-                          className={`rounded-xl border p-4 transition ${task.is_completed ? "border-slate-900 bg-slate-900/50 text-slate-500" : "border-slate-800 bg-slate-900 hover:border-slate-700"}`}
+                          className={`relative rounded-xl border p-4 transition ${task.is_completed ? "border-slate-900 bg-slate-900/50 text-slate-500" : "border-slate-800 bg-slate-900 hover:border-slate-700"}`}
                         >
                           <div className="flex min-w-0 flex-wrap items-center justify-between gap-3">
                             <button
                               onClick={() => toggleTask(task)}
-                              className="flex min-w-0 items-center gap-3 text-left"
+                              className="flex min-w-0 flex-1 items-center gap-3 text-left"
                             >
                               {task.is_completed ? (
                                 <CheckCircle2
@@ -1251,43 +1376,38 @@ export default function App() {
                                 {task.title}
                               </span>
                             </button>
-                            <div className="flex w-full shrink-0 items-center justify-end gap-1 text-xs sm:w-auto sm:gap-2">
-                            <span
-                              className={`rounded-full border px-2 py-1 font-semibold ${priorityStyles[task.priority] || priorityStyles.media}`}
-                            >
-                              {task.priority || "media"}
-                            </span>
-                            <span className="hidden items-center gap-1 text-slate-400 sm:flex">
-                              <Clock3 size={13} />
-                              {task.due_date}
-                            </span>
-                            {!task.is_completed && task.due_date && (
-                              <span
-                                className={`inline-flex items-center gap-1 rounded-full border px-2 py-1 font-semibold ${daysUntil(task.due_date, currentTime) < 0 ? "border-red-500/30 bg-red-500/10 text-red-300" : daysUntil(task.due_date, currentTime) <= 1 ? "border-amber-500/30 bg-amber-500/10 text-amber-300" : "border-jedadi-blue/30 bg-jedadi-blue/10 text-jedadi-blue"}`}
-                                title={`Cuenta regresiva: ${countdownLabel(task.due_date, currentTime)}`}
-                              >
-                                <Clock3 size={13} />
-                                {countdownLabel(task.due_date, currentTime)}
-                              </span>
-                            )}
+                            <div className="flex shrink-0 items-center gap-1 text-jedadi-gray sm:gap-2">
                             <button
                               title="Editar tarea"
                               onClick={() => beginEdit(task)}
-                              className="rounded-md p-1.5 text-slate-500 hover:bg-slate-800 hover:text-jedadi-blue"
+                              className="rounded-md p-1.5 hover:bg-slate-800 hover:text-jedadi-blue"
                             >
                               <Edit3 size={15} />
                             </button>
                               <button
                                 title="Eliminar tarea"
                                 onClick={() => deleteTask(task.id)}
-                                className="rounded-md p-1.5 text-slate-500 hover:bg-red-500/10 hover:text-red-300"
+                                className="rounded-md p-1.5 hover:bg-red-500/10 hover:text-red-300"
                               >
                                 <Trash2 size={15} />
                               </button>
                             </div>
                           </div>
-                          {task.details && (
-                            <>
+                          <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-slate-400">
+                            {task.due_date && (
+                              <span
+                                className={`inline-flex items-center gap-1 bg-transparent font-semibold ${daysUntil(task.due_date, currentTime) < 0 ? "text-red-300" : daysUntil(task.due_date, currentTime) <= 1 ? "text-amber-300" : "text-jedadi-blue"}`}
+                                title={`Fecha de entrega: ${task.due_date}`}
+                              >
+                                <Clock3 size={13} />
+                                {countdownLabel(task.due_date, currentTime)}
+                              </span>
+                            )}
+                            <span className="inline-flex items-center gap-1 font-semibold text-slate-300">
+                              <span className={`h-2 w-2 rounded-full ${task.priority === "alta" ? "bg-jedadi-orange" : task.priority === "baja" ? "bg-jedadi-green" : "bg-amber-400"}`} />
+                              {task.priority || "media"}
+                            </span>
+                            {task.details && (
                               <button
                                 type="button"
                                 onClick={() =>
@@ -1295,18 +1415,16 @@ export default function App() {
                                     current === task.id ? null : task.id,
                                   )
                                 }
-                                className="mt-3 flex items-center gap-2 text-xs font-semibold text-jedadi-blue hover:text-cyan-300"
+                                className="flex items-center gap-2 font-semibold text-jedadi-blue hover:text-cyan-300"
                               >
                                 <FileText size={14} />
-                                {expandedTaskId === task.id
-                                  ? "Ocultar notas"
-                                  : "Ver notas"}
-                                {expandedTaskId === task.id ? (
-                                  <ChevronUp size={14} />
-                                ) : (
-                                  <ChevronDown size={14} />
-                                )}
+                                {expandedTaskId === task.id ? "Ocultar notas" : "Ver notas"}
+                                {expandedTaskId === task.id ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
                               </button>
+                            )}
+                          </div>
+                          {task.details && (
+                            <>
                               {expandedTaskId === task.id && (
                                 <div className="mt-3 rounded-lg border border-jedadi-blue/20 bg-slate-950 p-4 text-sm leading-6 text-slate-300">
                                   <p className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-500">
@@ -1323,8 +1441,164 @@ export default function App() {
                     )
                   )}
                 </div>
+                <button
+                  type="button"
+                  aria-expanded={isCompletedTasksOpen}
+                  onClick={() => setIsCompletedTasksOpen((current) => !current)}
+                  className="mt-6 flex w-full items-center justify-between rounded-xl border border-jedadi-purple/20 bg-jedadi-purple/5 px-4 py-3 text-left text-sm font-bold text-jedadi-purple transition hover:border-jedadi-purple/50 hover:bg-jedadi-purple/10"
+                >
+                  <span className="flex items-center gap-2">
+                    <CheckCircle2 size={17} />
+                    Tareas realizadas ({completedTasks.length})
+                  </span>
+                  <ChevronDown
+                    size={17}
+                    className={`transition-transform duration-300 ${isCompletedTasksOpen ? "rotate-180" : ""}`}
+                  />
+                </button>
+                <div
+                  className={`task-form-accordion space-y-3 ${isCompletedTasksOpen ? "task-form-accordion-open mt-3" : ""}`}
+                  aria-hidden={!isCompletedTasksOpen}
+                >
+                  {completedTasks.length === 0 ? (
+                    <p className="py-5 text-center text-sm text-slate-500">
+                      No hay tareas realizadas.
+                    </p>
+                  ) : (
+                    completedTasks.map((task) => (
+                      editingId === task.id ? (
+                        <form
+                          key={task.id}
+                          onSubmit={(event) => saveEdit(event, task.id)}
+                          className="grid min-w-0 grid-cols-1 gap-3 rounded-xl border border-jedadi-blue/50 bg-slate-900 p-3 sm:p-4 md:grid-cols-[minmax(0,1fr)_150px_120px_auto]"
+                        >
+                          <input
+                            id={`completed-task-title-${task.id}`}
+                            name="taskTitle"
+                            className={inputClass}
+                            value={editForm.title}
+                            onChange={(event) =>
+                              setEditForm({ ...editForm, title: event.target.value })
+                            }
+                          />
+                          <CompactDateInput
+                            id={`completed-task-due-date-${task.id}`}
+                            name="dueDate"
+                            value={editForm.due_date}
+                            onChange={(event) =>
+                              setEditForm({ ...editForm, due_date: event.target.value })
+                            }
+                            min={todayString()}
+                            label="Fecha de entrega"
+                          />
+                          <select
+                            id={`completed-task-priority-${task.id}`}
+                            name="priority"
+                            className={inputClass}
+                            value={editForm.priority}
+                            onChange={(event) =>
+                              setEditForm({ ...editForm, priority: event.target.value })
+                            }
+                          >
+                            <option value="alta">Alta</option>
+                            <option value="media">Media</option>
+                            <option value="baja">Baja</option>
+                          </select>
+                          <textarea
+                            id={`completed-task-details-${task.id}`}
+                            name="details"
+                            className={`${inputClass} min-h-20 resize-y md:col-span-3`}
+                            value={editForm.details}
+                            onChange={(event) =>
+                              setEditForm({ ...editForm, details: event.target.value })
+                            }
+                          />
+                          <div className="flex gap-2">
+                            <button title="Guardar cambios" className="rounded-lg bg-emerald-600 px-3">
+                              <Save size={16} />
+                            </button>
+                            <button
+                              type="button"
+                              title="Cancelar"
+                              onClick={() => setEditingId(null)}
+                              className="rounded-lg bg-slate-800 px-3"
+                            >
+                              <X size={16} />
+                            </button>
+                          </div>
+                        </form>
+                      ) : (
+                      <div
+                        key={task.id}
+                        className="relative rounded-xl border border-slate-900 bg-slate-900/50 p-4 text-slate-500 opacity-70"
+                      >
+                        <div className="flex min-w-0 flex-wrap items-center justify-between gap-3">
+                          <button
+                            onClick={() => toggleTask(task)}
+                            className="flex min-w-0 flex-1 items-center gap-3 text-left"
+                          >
+                            <CheckCircle2 className="shrink-0 text-emerald-500" size={20} />
+                            <span className="truncate text-sm line-through">{task.title}</span>
+                          </button>
+                          <div className="flex shrink-0 items-center gap-1 text-jedadi-gray sm:gap-2">
+                            <button
+                              title="Editar tarea"
+                              onClick={() => beginEdit(task)}
+                              className="rounded-md p-1.5 hover:bg-slate-800 hover:text-jedadi-blue"
+                            >
+                              <Edit3 size={15} />
+                            </button>
+                            <button
+                              title="Eliminar tarea"
+                              onClick={() => deleteTask(task.id)}
+                              className="rounded-md p-1.5 hover:bg-red-500/10 hover:text-red-300"
+                            >
+                              <Trash2 size={15} />
+                            </button>
+                          </div>
+                        </div>
+                        <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-slate-400">
+                          <span className="font-semibold text-jedadi-gray">Completada</span>
+                          <span className="inline-flex items-center gap-1 font-semibold text-slate-300">
+                            <span className={`h-2 w-2 rounded-full ${task.priority === "alta" ? "bg-jedadi-orange" : task.priority === "baja" ? "bg-jedadi-green" : "bg-amber-400"}`} />
+                            {task.priority || "media"}
+                          </span>
+                          {task.details && (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setExpandedTaskId((current) =>
+                                  current === task.id ? null : task.id,
+                                )
+                              }
+                              className="flex items-center gap-2 font-semibold text-jedadi-gray hover:text-slate-300"
+                            >
+                              <FileText size={14} />
+                              {expandedTaskId === task.id ? "Ocultar notas" : "Ver notas"}
+                              {expandedTaskId === task.id ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                            </button>
+                          )}
+                        </div>
+                        {task.details && (
+                          <>
+                            {expandedTaskId === task.id && (
+                              <div className="mt-3 rounded-lg border border-jedadi-blue/20 bg-slate-950 p-4 text-sm leading-6 text-slate-300">
+                                <p className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-500">
+                                  <Wrench size={14} />
+                                  Detalles de estudio
+                                </p>
+                                <p className="whitespace-pre-wrap">{task.details}</p>
+                              </div>
+                            )}
+                          </>
+                        )}
+                      </div>
+                      )
+                    ))
+                  )}
+                </div>
               </section>
-              <aside className="rounded-2xl border border-slate-800 bg-slate-950 p-5">
+              <aside className="w-full max-w-full overflow-hidden rounded-2xl border border-slate-800 bg-slate-950 p-5">
                 <div className="mb-4 flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <h3 className="mb-1 flex items-center gap-2 font-bold">
@@ -1342,6 +1616,8 @@ export default function App() {
                   />
                 </div>
                 <textarea
+                  id="quick-notes"
+                  name="quickNotes"
                   value={notes[selectedCategory] || ""}
                   onChange={(event) => updateNotes(event.target.value)}
                   className={`${inputClass} min-h-64 resize-y leading-6`}

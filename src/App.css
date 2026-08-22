@@ -24,6 +24,17 @@
     drop-shadow(0 0 12px rgba(168, 85, 247, 0.2));
 }
 
+.progress-fill {
+  background: linear-gradient(
+    90deg,
+    var(--jedadi-orange) 0%,
+    var(--jedadi-purple) 48%,
+    var(--jedadi-blue) 78%,
+    var(--jedadi-green) 100%
+  );
+  box-shadow: 0 0 12px rgba(19, 191, 255, 0.28);
+}
+
 .task-form-accordion {
   max-height: 0;
   overflow: hidden;
