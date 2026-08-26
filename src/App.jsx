@@ -366,11 +366,11 @@ function AuthScreen({ initialMode = "login" }) {
       setPasswordConfirmation("");
       sessionStorage.setItem(
         "jedadi-registration-success",
-        "Contraseña actualizada correctamente. Ya puedes iniciar sesión.",
+        "Contraseña actualizada correctamente. Cierra la web y vuelve a abrirla para ingresar con tus nuevas credenciales.",
       );
       await supabase.auth.signOut();
       setMode("login");
-      setMessage("Contraseña actualizada correctamente. Ya puedes iniciar sesión.");
+      setMessage("Contraseña actualizada correctamente. Cierra la web y vuelve a abrirla para ingresar con tus nuevas credenciales.");
     } else if (isRegister) {
       const registrationMessage = "Tu cuenta fue creada. Inicia sesión para comenzar tus 10 días de prueba.";
       sessionStorage.setItem("jedadi-registration-success", registrationMessage);
