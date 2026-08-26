@@ -36,7 +36,7 @@ const wompiCheckoutUrl =
   "https://checkout.wompi.co/l/VPOS_zPdUt1";
 const wompiMonthlyUrl = import.meta.env.VITE_WOMPI_URL_MENSUAL;
 const wompiAnnualUrl = import.meta.env.VITE_WOMPI_URL_ANUAL;
-const appUrl = import.meta.env.VITE_APP_URL;
+const appUrl = import.meta.env.VITE_APP_URL || window.location.origin;
 
 const todayString = () => new Date().toISOString().slice(0, 10);
 const AUTH_SESSION_STARTED_AT = "jedadi-auth-session-started-at";
