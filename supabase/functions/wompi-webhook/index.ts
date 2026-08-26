@@ -28,24 +28,31 @@ function timingSafeEqual(first: string, second: string) {
   return difference === 0
 }
 
+function getNestedValue(source: Record<string, unknown>, path: string) {
+  return path.split('.').reduce<unknown>((value, key) => {
+    if (!value || typeof value !== 'object') return undefined
+    return (value as Record<string, unknown>)[key]
+  }, source)
+}
+
 serve(async (req) => {
   try {
     const body = await req.json()
     const { event, data } = body
 
     if (event === 'transaction.updated') {
-      const signature = data?.signature
+      const signature = body.signature
       const transaction = data?.transaction
       const secret = Deno.env.get('WOMPI_EVENTS_SECRET')
 
-      if (!signature?.checksum || !Array.isArray(signature.properties) || !signature.timestamp || !secret) {
+      if (!signature?.checksum || !Array.isArray(signature.properties) || !body.timestamp || !secret) {
         return new Response(JSON.stringify({ error: 'Firma de evento inválida' }), { status: 401 })
       }
 
       const propertiesValue = signature.properties
-        .map((property: string) => transaction?.[property])
+        .map((property: string) => String(getNestedValue(body, property) ?? ''))
         .join('')
-      const signedPayload = `${propertiesValue}${signature.timestamp}${secret}`
+      const signedPayload = `${propertiesValue}${body.timestamp}${secret}`
       const expectedChecksum = await sha256Hex(signedPayload)
 
       if (!timingSafeEqual(expectedChecksum, signature.checksum.toLowerCase())) {
