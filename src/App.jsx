@@ -244,7 +244,7 @@ function SubscriptionRenewalNotice({ daysRemaining }) {
           rel="noopener noreferrer"
           className="inline-flex flex-1 items-center justify-center rounded-lg bg-amber-300 px-3 py-2 text-xs font-bold text-slate-950 transition hover:bg-amber-200 sm:flex-none"
         >
-          Anual · $180.000
+          Anual · $180.000 <span className="ml-1 text-red-600">25% dto.</span>
         </a>
       </div>
     </div>
@@ -278,7 +278,7 @@ function TrialNotice({ daysRemaining }) {
           rel="noopener noreferrer"
           className="inline-flex flex-1 items-center justify-center rounded-lg bg-jedadi-blue px-3 py-2 text-xs font-bold text-jedadi-dark transition hover:bg-cyan-300 sm:flex-none"
         >
-          Anual
+          Anual <span className="ml-1 text-red-600">25% dto.</span>
         </a>
       </div>
     </div>
