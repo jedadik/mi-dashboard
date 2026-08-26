@@ -226,15 +226,24 @@ function SubscriptionRenewalNotice({ daysRemaining }) {
           Tu mensualidad vence en {daysRemaining} {daysRemaining === 1 ? "día" : "días"}.
         </span>
       </p>
-      <a
-        href={wompiCheckoutUrl}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="inline-flex items-center gap-1.5 rounded-lg bg-amber-300 px-3 py-2 text-xs font-bold text-slate-950 transition hover:bg-amber-200"
-      >
-        Renovar ahora
-        <ArrowRight size={14} />
-      </a>
+      <div className="flex w-full shrink-0 items-center gap-2 sm:w-auto">
+        <a
+          href={wompiMonthlyUrl || wompiCheckoutUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex flex-1 items-center justify-center rounded-lg border border-amber-300/60 px-3 py-2 text-xs font-bold text-amber-200 transition hover:bg-amber-300/10 sm:flex-none"
+        >
+          Mensual · $20.000
+        </a>
+        <a
+          href={wompiAnnualUrl || wompiCheckoutUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex flex-1 items-center justify-center rounded-lg bg-amber-300 px-3 py-2 text-xs font-bold text-slate-950 transition hover:bg-amber-200 sm:flex-none"
+        >
+          Anual · $180.000
+        </a>
+      </div>
     </div>
   );
 }
