@@ -59,27 +59,27 @@ serve(async (req) => {
       const customerEmail = transaction.customer_email
       const amountInCents = transaction.amount_in_cents
       const currency = transaction.currency
-      const reference = transaction.reference
+      const paymentLinkId = transaction.payment_link_id
       const transactionId = transaction.id
-      const monthlyReference = Deno.env.get('WOMPI_MONTHLY_REFERENCE')
-      const annualReference = Deno.env.get('WOMPI_ANNUAL_REFERENCE')
+      const monthlyLinkId = Deno.env.get('WOMPI_MONTHLY_LINK_ID')
+      const annualLinkId = Deno.env.get('WOMPI_ANNUAL_LINK_ID')
 
       if (
         !transactionId ||
         !customerEmail ||
         currency !== 'COP' ||
         typeof amountInCents !== 'number' ||
-        typeof reference !== 'string' ||
-        !monthlyReference ||
-        !annualReference
+        typeof paymentLinkId !== 'string' ||
+        !monthlyLinkId ||
+        !annualLinkId
       ) {
         return jsonResponse({ error: 'Datos de pago inválidos' }, 400)
       }
 
       const planType =
-        amountInCents === MONTHLY_AMOUNT_IN_CENTS && reference === monthlyReference
+        amountInCents === MONTHLY_AMOUNT_IN_CENTS && paymentLinkId === monthlyLinkId
           ? 'monthly'
-          : amountInCents === ANNUAL_AMOUNT_IN_CENTS && reference === annualReference
+          : amountInCents === ANNUAL_AMOUNT_IN_CENTS && paymentLinkId === annualLinkId
             ? 'annual'
             : null
 
