@@ -229,12 +229,12 @@ function SubscriptionRenewalNotice({ daysRemaining }) {
           Tu mensualidad vence en {daysRemaining} {daysRemaining === 1 ? "día" : "días"}.
         </span>
       </p>
-      <div className="flex w-full shrink-0 items-center gap-2 sm:w-auto">
+      <div className="flex w-full shrink-0 flex-col gap-2 sm:w-auto sm:flex-row">
         <a
           href={wompiMonthlyUrl || wompiCheckoutUrl}
           target="_blank"
           rel="noopener noreferrer"
-          className="inline-flex flex-1 items-center justify-center rounded-lg border border-amber-300/60 px-3 py-2 text-xs font-bold text-amber-200 transition hover:bg-amber-300/10 sm:flex-none"
+          className="inline-flex w-full items-center justify-center rounded-lg border border-amber-300/60 px-3 py-2 text-xs font-bold text-amber-200 transition hover:bg-amber-300/10 sm:w-auto"
         >
           Mensual · $20.000
         </a>
@@ -242,9 +242,10 @@ function SubscriptionRenewalNotice({ daysRemaining }) {
           href={wompiAnnualUrl || wompiCheckoutUrl}
           target="_blank"
           rel="noopener noreferrer"
-          className="inline-flex flex-1 items-center justify-center rounded-lg bg-amber-300 px-3 py-2 text-xs font-bold text-slate-950 transition hover:bg-amber-200 sm:flex-none"
+          className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-amber-300 px-3 py-2 text-xs font-bold text-slate-950 transition hover:bg-amber-200 sm:w-auto"
         >
-          Anual · $180.000 <span className="ml-1 text-red-600">25% dto.</span>
+          <span>Anual · $180.000</span>
+          <span className="text-red-600">25% dto.</span>
         </a>
       </div>
     </div>
