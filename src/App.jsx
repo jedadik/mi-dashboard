@@ -105,7 +105,7 @@ function LoadingState({ label }) {
   );
 }
 
-function SubscriptionLockScreen({ onSignOut }) {
+function SubscriptionLockScreen({ onSignOut, isPaymentReturn }) {
   return (
     <main className="relative isolate flex min-h-screen items-center justify-center overflow-hidden bg-slate-950 px-4 py-8 text-slate-100">
       <div
@@ -144,6 +144,15 @@ function SubscriptionLockScreen({ onSignOut }) {
         <p className="mt-3 text-sm leading-6 text-slate-400">
           Renueva tu suscripción para continuar usando el Dashboard.
         </p>
+        {isPaymentReturn && (
+          <div
+            role="status"
+            className="mt-4 flex items-center justify-center gap-2 rounded-xl border border-jedadi-orange/30 bg-jedadi-orange/10 px-3 py-2 text-sm text-orange-100"
+          >
+            <LoaderCircle className="animate-spin text-jedadi-orange" size={17} />
+            Verificando tu pago...
+          </div>
+        )}
         <div className="mt-7 grid gap-4 text-left md:grid-cols-2">
           <article className="flex flex-col rounded-2xl border border-slate-700 bg-slate-950/80 p-5">
             <p className="text-xs font-bold uppercase tracking-[0.18em] text-jedadi-blue">
@@ -273,7 +282,7 @@ function BrandFooter() {
   );
 }
 
-function AuthScreen({ initialMode = "login", onResetComplete }) {
+function AuthScreen({ initialMode = "login" }) {
   const [pendingRegistrationNotice] = useState(() =>
     sessionStorage.getItem("jedadi-registration-success"),
   );
@@ -346,7 +355,6 @@ function AuthScreen({ initialMode = "login", onResetComplete }) {
     } else if (isReset) {
       setPassword("");
       setPasswordConfirmation("");
-      onResetComplete?.();
       setMode("login");
       setMessage("Contraseña actualizada correctamente. Ya puedes iniciar sesión.");
     } else if (isRegister) {
@@ -458,6 +466,9 @@ export default function App() {
   const [isRecoverySession, setIsRecoverySession] = useState(() =>
     window.location.hash.includes("type=recovery"),
   );
+  const [isPaymentReturn, setIsPaymentReturn] = useState(() =>
+    new URLSearchParams(window.location.search).get("payment_status") === "check",
+  );
   const [profile, setProfile] = useState(null);
   const [profileLoading, setProfileLoading] = useState(false);
   const [dashboardLoading, setDashboardLoading] = useState(false);
@@ -537,6 +548,12 @@ export default function App() {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((event, nextSession) => {
+      if (event === "PASSWORD_RECOVERY") {
+        setSession(nextSession);
+        setIsRecoverySession(true);
+        setAuthLoading(false);
+        return;
+      }
       if (event === "TOKEN_REFRESHED" && !nextSession) {
         clearInvalidSession();
         return;
@@ -549,7 +566,6 @@ export default function App() {
       if (!nextSession) localStorage.removeItem(AUTH_SESSION_STARTED_AT);
       setSession(nextSession);
       if (event === "SIGNED_OUT") setProfile(null);
-      if (event === "PASSWORD_RECOVERY") setIsRecoverySession(true);
       setAuthLoading(false);
     });
 
@@ -584,6 +600,38 @@ export default function App() {
       mounted = false;
     };
   }, [session]);
+
+  useEffect(() => {
+    if (!isPaymentReturn || !session?.user?.id) return;
+
+    let attempts = 0;
+    let timeoutId;
+    let cancelled = false;
+
+    async function checkPaymentStatus() {
+      const { data } = await supabase
+        .from("profiles")
+        .select("subscription_status, subscription_end_date")
+        .eq("id", session.user.id)
+        .maybeSingle();
+
+      if (cancelled) return;
+      setProfile(data || null);
+      attempts += 1;
+      if (data?.subscription_status === "active" || attempts >= 5) {
+        setIsPaymentReturn(false);
+        window.history.replaceState({}, document.title, window.location.pathname);
+        return;
+      }
+      timeoutId = window.setTimeout(checkPaymentStatus, 3000);
+    }
+
+    checkPaymentStatus();
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timeoutId);
+    };
+  }, [isPaymentReturn, session]);
 
   const isSubscriptionValid =
     profile?.subscription_status === "active" &&
@@ -912,7 +960,6 @@ export default function App() {
     return (
       <AuthScreen
         initialMode="reset"
-        onResetComplete={() => setIsRecoverySession(false)}
       />
     );
   }
@@ -921,7 +968,7 @@ export default function App() {
     return <LoadingState label="Verificando suscripción..." />;
   }
   if (!hasAccess) {
-    return <SubscriptionLockScreen onSignOut={signOut} />;
+    return <SubscriptionLockScreen onSignOut={signOut} isPaymentReturn={isPaymentReturn} />;
   }
 
   return (
@@ -1005,6 +1052,15 @@ export default function App() {
           </div>
         )}
         <header className="mb-8">
+          {isPaymentReturn && (
+            <div
+              role="status"
+              className="mb-5 flex items-center gap-3 rounded-xl border border-jedadi-orange/30 bg-jedadi-orange/10 px-4 py-3 text-sm text-orange-100"
+            >
+              <LoaderCircle className="animate-spin text-jedadi-orange" size={17} />
+              <span>Estamos verificando tu pago. La suscripción se activará al confirmar el webhook.</span>
+            </div>
+          )}
           {isTrialActive && <TrialNotice daysRemaining={trialDaysRemaining} />}
           {shouldShowRenewalNotice && (
             <SubscriptionRenewalNotice

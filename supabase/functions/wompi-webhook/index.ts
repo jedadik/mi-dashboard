@@ -1,12 +1,49 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 
+async function sha256Hex(value: string) {
+  const bytes = new TextEncoder().encode(value)
+  const digest = await crypto.subtle.digest('SHA-256', bytes)
+  return Array.from(new Uint8Array(digest))
+    .map((byte) => byte.toString(16).padStart(2, '0'))
+    .join('')
+}
+
+function timingSafeEqual(first: string, second: string) {
+  if (first.length !== second.length) return false
+  let difference = 0
+  for (let index = 0; index < first.length; index += 1) {
+    difference |= first.charCodeAt(index) ^ second.charCodeAt(index)
+  }
+  return difference === 0
+}
+
 serve(async (req) => {
   try {
     const body = await req.json()
     const { event, data } = body
 
-    // 1. Validar que la transacción sea de un pago aprobado
+    if (event === 'transaction.updated') {
+      const signature = data?.signature
+      const transaction = data?.transaction
+      const secret = Deno.env.get('WOMPI_EVENTS_SECRET')
+
+      if (!signature?.checksum || !Array.isArray(signature.properties) || !signature.timestamp || !secret) {
+        return new Response(JSON.stringify({ error: 'Firma de evento inválida' }), { status: 401 })
+      }
+
+      const propertiesValue = signature.properties
+        .map((property: string) => transaction?.[property])
+        .join('')
+      const signedPayload = `${propertiesValue}${signature.timestamp}${secret}`
+      const expectedChecksum = await sha256Hex(signedPayload)
+
+      if (!timingSafeEqual(expectedChecksum, signature.checksum.toLowerCase())) {
+        return new Response(JSON.stringify({ error: 'Firma de evento inválida' }), { status: 401 })
+      }
+    }
+
+    // Procesar únicamente transacciones aprobadas con firma válida
     if (event === 'transaction.updated' && data?.transaction?.status === 'APPROVED') {
       const customerEmail = data.transaction.customer_email
       const amountInCents = data.transaction.amount_in_cents
