@@ -36,6 +36,7 @@ const wompiCheckoutUrl =
   "https://checkout.wompi.co/l/VPOS_zPdUt1";
 const wompiMonthlyUrl = import.meta.env.VITE_WOMPI_URL_MENSUAL;
 const wompiAnnualUrl = import.meta.env.VITE_WOMPI_URL_ANUAL;
+const appUrl = import.meta.env.VITE_APP_URL;
 
 const todayString = () => new Date().toISOString().slice(0, 10);
 const AUTH_SESSION_STARTED_AT = "jedadi-auth-session-started-at";
@@ -338,7 +339,7 @@ function AuthScreen({ initialMode = "login" }) {
       ? await supabase.auth.updateUser({ password })
       : isRecovery
       ? await supabase.auth.resetPasswordForEmail(email.trim(), {
-          redirectTo: window.location.origin,
+          redirectTo: appUrl,
         })
       : isRegister
         ? await supabase.auth.signUp({
@@ -921,7 +922,7 @@ export default function App() {
     .sort()[0];
   const urgentCategoryIds = new Set(
     categoryDueDates
-      .filter((item) => item.dueDate === nearestCategoryDueDate)
+      .filter((item) => item.dueDate && item.dueDate === nearestCategoryDueDate)
       .map((item) => item.categoryId),
   );
   const sortedCategories = [...categories].sort((firstCategory, secondCategory) => {

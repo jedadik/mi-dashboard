@@ -1,6 +1,16 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 
+const MONTHLY_AMOUNT_IN_CENTS = 2000000
+const ANNUAL_AMOUNT_IN_CENTS = 18000000
+
+function jsonResponse(body: Record<string, unknown>, status = 200) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { 'Content-Type': 'application/json' },
+  })
+}
+
 async function sha256Hex(value: string) {
   const bytes = new TextEncoder().encode(value)
   const digest = await crypto.subtle.digest('SHA-256', bytes)
@@ -39,32 +49,68 @@ serve(async (req) => {
       const expectedChecksum = await sha256Hex(signedPayload)
 
       if (!timingSafeEqual(expectedChecksum, signature.checksum.toLowerCase())) {
-        return new Response(JSON.stringify({ error: 'Firma de evento inválida' }), { status: 401 })
+        return jsonResponse({ error: 'Firma de evento inválida' }, 401)
       }
-    }
 
-    // Procesar únicamente transacciones aprobadas con firma válida
-    if (event === 'transaction.updated' && data?.transaction?.status === 'APPROVED') {
-      const customerEmail = data.transaction.customer_email
-      const amountInCents = data.transaction.amount_in_cents
+      if (!transaction || transaction.status !== 'APPROVED') {
+        return jsonResponse({ received: true })
+      }
 
-      // 2. Determinar días a sumar según el monto pagado (180.000 COP = 18000000 centavos)
-      const isAnnual = amountInCents >= 18000000
-      const daysToAdd = isAnnual ? 365 : 30
-      const planType = isAnnual ? 'annual' : 'monthly'
+      const customerEmail = transaction.customer_email
+      const amountInCents = transaction.amount_in_cents
+      const currency = transaction.currency
+      const reference = transaction.reference
+      const transactionId = transaction.id
+      const monthlyReference = Deno.env.get('WOMPI_MONTHLY_REFERENCE')
+      const annualReference = Deno.env.get('WOMPI_ANNUAL_REFERENCE')
 
-      // Calcular nueva fecha final
+      if (
+        !transactionId ||
+        !customerEmail ||
+        currency !== 'COP' ||
+        typeof amountInCents !== 'number' ||
+        typeof reference !== 'string' ||
+        !monthlyReference ||
+        !annualReference
+      ) {
+        return jsonResponse({ error: 'Datos de pago inválidos' }, 400)
+      }
+
+      const planType =
+        amountInCents === MONTHLY_AMOUNT_IN_CENTS && reference === monthlyReference
+          ? 'monthly'
+          : amountInCents === ANNUAL_AMOUNT_IN_CENTS && reference === annualReference
+            ? 'annual'
+            : null
+
+      if (!planType) {
+        return jsonResponse({ error: 'Referencia o monto de pago inválido' }, 400)
+      }
+
+      const supabaseUrl = Deno.env.get('SUPABASE_URL')
+      const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
+      if (!supabaseUrl || !serviceRoleKey) {
+        return jsonResponse({ error: 'Configuración del servidor incompleta' }, 500)
+      }
+
+      const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey)
+      const { error: eventError } = await supabaseAdmin
+        .from('payment_events')
+        .insert({ transaction_id: transactionId, event_name: event })
+
+      if (eventError) {
+        if (eventError.code === '23505') {
+          return jsonResponse({ received: true, duplicate: true })
+        }
+        console.error('Error registrando evento de pago:', eventError)
+        return jsonResponse({ error: eventError.message }, 500)
+      }
+
+      const daysToAdd = planType === 'annual' ? 365 : 30
       const endDate = new Date()
       endDate.setDate(endDate.getDate() + daysToAdd)
 
-      // 3. Conectar a Supabase con permisos de administrador
-      const supabaseAdmin = createClient(
-        Deno.env.get('SUPABASE_URL') ?? '',
-        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-      )
-
-      // 4. Actualizar la suscripción en la tabla profiles
-      const { error } = await supabaseAdmin
+      const { data: updatedProfiles, error } = await supabaseAdmin
         .from('profiles')
         .update({
           subscription_status: 'active',
@@ -72,18 +118,26 @@ serve(async (req) => {
           subscription_end_date: endDate.toISOString()
         })
         .eq('email', customerEmail)
+        .select('id')
 
       if (error) {
         console.error('Error actualizando perfil:', error)
-        return new Response(JSON.stringify({ error: error.message }), { status: 500 })
+        await supabaseAdmin.from('payment_events').delete().eq('transaction_id', transactionId)
+        return jsonResponse({ error: error.message }, 500)
+      }
+
+      if (!updatedProfiles || updatedProfiles.length !== 1) {
+        console.error(`Se esperaban 1 perfil para ${customerEmail}, se encontraron ${updatedProfiles?.length ?? 0}`)
+        await supabaseAdmin.from('payment_events').delete().eq('transaction_id', transactionId)
+        return jsonResponse({ error: 'Perfil de usuario no encontrado o no único' }, 409)
       }
 
       console.log(`Suscripción actualizada para ${customerEmail}: ${planType} (+${daysToAdd} días)`)
     }
 
-    return new Response(JSON.stringify({ received: true }), { status: 200 })
+    return jsonResponse({ received: true })
   } catch (err) {
     console.error('Error en el Webhook:', err)
-    return new Response(JSON.stringify({ error: err.message }), { status: 400 })
+    return jsonResponse({ error: err instanceof Error ? err.message : 'Solicitud inválida' }, 400)
   }
 })
