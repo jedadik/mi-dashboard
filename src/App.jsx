@@ -1400,6 +1400,7 @@ export default function App() {
                           />
                           <div className="flex gap-2">
                             <button
+                              type="submit"
                               title="Guardar cambios"
                               className="rounded-lg bg-emerald-600 px-3"
                             >
@@ -1580,7 +1581,7 @@ export default function App() {
                             }
                           />
                           <div className="flex gap-2">
-                            <button title="Guardar cambios" className="rounded-lg bg-emerald-600 px-3">
+                            <button type="submit" title="Guardar cambios" className="rounded-lg bg-emerald-600 px-3">
                               <Save size={16} />
                             </button>
                             <button

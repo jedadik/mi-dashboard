@@ -1,5 +1,8 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+// @deno-types="https://deno.land/std@0.208.0/http/server.ts"
+import { serve } from "https://deno.land/std@0.208.0/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
+
+declare const Deno: any
 
 const MONTHLY_AMOUNT_IN_CENTS = 2000000
 const ANNUAL_AMOUNT_IN_CENTS = 18000000
@@ -35,7 +38,7 @@ function getNestedValue(source: Record<string, unknown>, path: string) {
   }, source)
 }
 
-serve(async (req) => {
+serve(async (req: Request) => {
   try {
     const body = await req.json()
     const { event, data } = body
@@ -46,21 +49,45 @@ serve(async (req) => {
       const secret = Deno.env.get('WOMPI_EVENTS_SECRET')
 
       if (!signature?.checksum || !Array.isArray(signature.properties) || !body.timestamp || !secret) {
-        return new Response(JSON.stringify({ error: 'Firma de evento inválida' }), { status: 401 })
-      }
-
-      const propertiesValue = signature.properties
-        .map((property: string) => String(getNestedValue(body, property) ?? ''))
-        .join('')
-      const signedPayload = `${propertiesValue}${body.timestamp}${secret}`
-      const expectedChecksum = await sha256Hex(signedPayload)
-
-      if (!timingSafeEqual(expectedChecksum, signature.checksum.toLowerCase())) {
         return jsonResponse({ error: 'Firma de evento inválida' }, 401)
       }
 
+      // Calcular firma esperada
+      // Recorrer propiedades y extraer valores (primero intenta en body completo, luego en data)
+      const propertyValues = signature.properties.map((property: string) => {
+        // Intentar obtener del body completo (si la propiedad incluye 'data.')
+        let value = getNestedValue(body, property)
+        
+        // Si no existe y la propiedad no comienza con 'data.', intentar desde data
+        if (value === undefined && !property.startsWith('data.')) {
+          value = getNestedValue(data, property)
+        }
+        
+        return String(value ?? '')
+      })
+
+      const propertiesValue = propertyValues.join('')
+      const signedPayload = `${propertiesValue}${body.timestamp}${secret}`
+      const expectedChecksum = await sha256Hex(signedPayload)
+
+      console.log('Validación de firma Wompi:')
+      console.log(`  Propiedades: ${signature.properties.join(', ')}`)
+      console.log(`  Valores: ${propertyValues.join(' | ')}`)
+      console.log(`  Timestamp: ${body.timestamp}`)
+      console.log(`  Payload para hash: ${propertiesValue}${body.timestamp}[SECRET]`)
+      console.log(`  Hash calculado: ${expectedChecksum}`)
+      console.log(`  Hash esperado: ${signature.checksum.toLowerCase()}`)
+
+      if (!timingSafeEqual(expectedChecksum, signature.checksum.toLowerCase())) {
+        console.error('❌ Firma inválida - Falla en validación de checksum')
+        return jsonResponse({ error: 'Firma de evento inválida' }, 401)
+      }
+      
+      console.log('✅ Firma validada correctamente')
+
       if (!transaction || transaction.status !== 'APPROVED') {
-        return jsonResponse({ received: true })
+        console.log(`ℹ️  Transacción no aprobada o sin datos. Status: ${transaction?.status || 'N/A'}`)
+        return jsonResponse({ status: 'ok' })
       }
 
       const customerEmail = transaction.customer_email
@@ -107,7 +134,8 @@ serve(async (req) => {
 
       if (eventError) {
         if (eventError.code === '23505') {
-          return jsonResponse({ received: true, duplicate: true })
+          console.log(`ℹ️  Evento duplicado. Transaction ID: ${transactionId}`)
+          return jsonResponse({ status: 'ok', duplicate: true })
         }
         console.error('Error registrando evento de pago:', eventError)
         return jsonResponse({ error: eventError.message }, 500)
@@ -139,10 +167,12 @@ serve(async (req) => {
         return jsonResponse({ error: 'Perfil de usuario no encontrado o no único' }, 409)
       }
 
-      console.log(`Suscripción actualizada para ${customerEmail}: ${planType} (+${daysToAdd} días)`)
+      console.log(`✅ Suscripción actualizada para ${customerEmail}: ${planType} (+${daysToAdd} días)`)
+      
+      return jsonResponse({ status: 'ok' })
     }
 
-    return jsonResponse({ received: true })
+    return jsonResponse({ status: 'ok' })
   } catch (err) {
     console.error('Error en el Webhook:', err)
     return jsonResponse({ error: err instanceof Error ? err.message : 'Solicitud inválida' }, 400)
