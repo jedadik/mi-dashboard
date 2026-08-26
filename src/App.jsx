@@ -364,6 +364,11 @@ function AuthScreen({ initialMode = "login" }) {
     } else if (isReset) {
       setPassword("");
       setPasswordConfirmation("");
+      sessionStorage.setItem(
+        "jedadi-registration-success",
+        "Contraseña actualizada correctamente. Ya puedes iniciar sesión.",
+      );
+      await supabase.auth.signOut();
       setMode("login");
       setMessage("Contraseña actualizada correctamente. Ya puedes iniciar sesión.");
     } else if (isRegister) {
