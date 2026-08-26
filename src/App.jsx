@@ -94,14 +94,22 @@ function CompactDateInput({ value, onChange, min, label, hint, id, name }) {
   );
 }
 
-function LoadingState({ label }) {
+function LoadingState({ label, compact = false }) {
   return (
-    <main className="flex min-h-screen items-center justify-center bg-slate-950 text-sm text-slate-400">
-      <div className="flex items-center gap-3">
-        <LoaderCircle className="animate-spin text-jedadi-blue" size={20} />
-        <span>{label}</span>
+    <div
+      className={`flex items-center justify-center ${compact ? "py-2" : "min-h-screen bg-slate-950"}`}
+      role="status"
+      aria-label={label}
+    >
+      <div className={`flex flex-col items-center ${compact ? "gap-1" : "gap-4"}`}>
+        <img
+          src="/emblem.png"
+          alt="Look always ahead"
+          className={`jedadi-emblem-glow animate-pulse object-contain ${compact ? "h-10 w-10" : "h-24 w-24"}`}
+        />
+        <span className="sr-only">{label}</span>
       </div>
-    </main>
+    </div>
   );
 }
 
@@ -1054,11 +1062,12 @@ export default function App() {
         <header className="mb-8">
           {isPaymentReturn && (
             <div
-              role="status"
               className="mb-5 flex items-center gap-3 rounded-xl border border-jedadi-orange/30 bg-jedadi-orange/10 px-4 py-3 text-sm text-orange-100"
             >
-              <LoaderCircle className="animate-spin text-jedadi-orange" size={17} />
-              <span>Estamos verificando tu pago. La suscripción se activará al confirmar el webhook.</span>
+              <LoadingState
+                compact
+                label="Estamos verificando tu pago. La suscripción se activará al confirmar el webhook."
+              />
             </div>
           )}
           {isTrialActive && <TrialNotice daysRemaining={trialDaysRemaining} />}
@@ -1153,12 +1162,7 @@ export default function App() {
         </section>
 
         {dashboardLoading ? (
-          <div className="flex min-h-52 items-center justify-center text-sm text-slate-400">
-            <div className="flex items-center gap-3">
-              <LoaderCircle className="animate-spin text-jedadi-blue" size={20} />
-              <span>Cargando tus actividades...</span>
-            </div>
-          </div>
+          <LoadingState compact label="Cargando tus actividades..." />
         ) : !selectedCategory ? (
           <p className="text-sm text-slate-500">
             Selecciona o crea una asignatura/proyecto para comenzar.
