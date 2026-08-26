@@ -194,6 +194,9 @@ function SubscriptionLockScreen({ onSignOut, isPaymentReturn }) {
             <p className="mt-3 text-sm text-slate-300">
               Acceso total por 365 días ($15.000/mes).
             </p>
+            <p className="mt-2 text-sm font-bold text-red-400">
+              25% de descuento frente al plan mensual.
+            </p>
             <a
               href={wompiAnnualUrl}
               target="_blank"
