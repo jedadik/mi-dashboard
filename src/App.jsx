@@ -114,7 +114,7 @@ function LoadingState({ label, compact = false }) {
   );
 }
 
-function SubscriptionLockScreen({ onSignOut, isPaymentReturn }) {
+function SubscriptionLockScreen({ onSignOut, isPaymentReturn, isTrialExpired }) {
   return (
     <main className="relative isolate flex min-h-screen items-center justify-center overflow-hidden bg-slate-950 px-4 py-8 text-slate-100">
       <div
@@ -146,12 +146,21 @@ function SubscriptionLockScreen({ onSignOut, isPaymentReturn }) {
       </div>
       <div className="absolute inset-0 bg-slate-950/65" />
       <section className="relative z-10 w-full max-w-4xl rounded-3xl border border-amber-500/30 bg-slate-900/95 p-6 text-center shadow-2xl shadow-amber-950/20 backdrop-blur sm:p-8">
+        {isTrialExpired && (
+          <img
+            src="/emblem.png"
+            alt="JEDADI"
+            className="jedadi-emblem-glow mx-auto h-20 w-20 object-contain"
+          />
+        )}
         <AlertTriangle className="mx-auto text-amber-300" size={42} />
         <h1 className="mt-5 text-2xl font-bold text-white">
-          Tu suscripción no está activa
+          {isTrialExpired ? "Tu membresía ha terminado" : "Tu suscripción no está activa"}
         </h1>
         <p className="mt-3 text-sm leading-6 text-slate-400">
-          Renueva tu suscripción para continuar usando el Dashboard.
+          {isTrialExpired
+            ? "Tus 10 días de prueba han terminado. Elige un plan para continuar usando el Dashboard."
+            : "Renueva tu suscripción para continuar usando el Dashboard."}
         </p>
         {isPaymentReturn && (
           <div
@@ -673,6 +682,8 @@ export default function App() {
   const isTrialActive =
     !isSubscriptionValid && trialEndDate != null && trialDaysRemaining > 0;
   const hasAccess = isSubscriptionValid || isTrialActive;
+  const isTrialExpired =
+    !isSubscriptionValid && trialEndDate != null && trialDaysRemaining <= 0;
   const subscriptionDaysRemaining = isTrialActive
     ? trialDaysRemaining
     : profile?.subscription_end_date
@@ -995,7 +1006,13 @@ export default function App() {
     return <LoadingState label="Verificando suscripción..." />;
   }
   if (!hasAccess) {
-    return <SubscriptionLockScreen onSignOut={signOut} isPaymentReturn={isPaymentReturn} />;
+    return (
+      <SubscriptionLockScreen
+        onSignOut={signOut}
+        isPaymentReturn={isPaymentReturn}
+        isTrialExpired={isTrialExpired}
+      />
+    );
   }
 
   return (
