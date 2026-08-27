@@ -621,7 +621,7 @@ export default function App() {
     async function fetchProfile() {
       const { data, error } = await supabase
         .from("profiles")
-        .select("subscription_status, subscription_end_date")
+        .select("subscription_status, subscription_end_date, created_at")
         .eq("id", session.user.id)
         .maybeSingle();
 
@@ -647,7 +647,7 @@ export default function App() {
     async function checkPaymentStatus() {
       const { data } = await supabase
         .from("profiles")
-        .select("subscription_status, subscription_end_date")
+        .select("subscription_status, subscription_end_date, created_at")
         .eq("id", session.user.id)
         .maybeSingle();
 
@@ -673,17 +673,24 @@ export default function App() {
     profile?.subscription_status === "active" &&
     profile?.subscription_end_date != null &&
     new Date(profile.subscription_end_date).getTime() > Date.now();
-  const trialEndDate = session?.user?.created_at
-    ? new Date(new Date(session.user.created_at).getTime() + 10 * 86400000)
+  const trialStartDate = profile?.created_at || session?.user?.created_at;
+  const trialEndDate = trialStartDate
+    ? new Date(new Date(trialStartDate).getTime() + 10 * 86400000)
     : null;
   const trialDaysRemaining = trialEndDate
     ? Math.ceil((trialEndDate.getTime() - currentTime.getTime()) / 86400000)
     : 0;
   const isTrialActive =
-    !isSubscriptionValid && trialEndDate != null && trialDaysRemaining > 0;
+    profile?.subscription_status === "trial" &&
+    trialEndDate != null &&
+    trialDaysRemaining > 0;
   const hasAccess = isSubscriptionValid || isTrialActive;
   const isTrialExpired =
-    !isSubscriptionValid && trialEndDate != null && trialDaysRemaining <= 0;
+    !isSubscriptionValid &&
+    (profile?.subscription_status === "expired" ||
+      (profile?.subscription_status === "trial" &&
+        trialEndDate != null &&
+        trialDaysRemaining <= 0));
   const subscriptionDaysRemaining = isTrialActive
     ? trialDaysRemaining
     : profile?.subscription_end_date
