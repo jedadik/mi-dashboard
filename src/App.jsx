@@ -31,6 +31,8 @@ const filters = [
   { id: "overdue", label: "Vencidas" },
 ];
 
+const priorityOrder = { alta: 1, media: 2, baja: 3 };
+
 const wompiCheckoutUrl =
   import.meta.env.VITE_WOMPI_CHECKOUT_URL ||
   "https://checkout.wompi.co/l/VPOS_zPdUt1";
@@ -72,7 +74,7 @@ function CompactDateInput({ value, onChange, min, label, hint, id, name }) {
   return (
     <div className="relative min-w-0">
       {hint && (
-        <span className="pointer-events-none absolute -top-4 left-1 text-[11px] font-medium text-slate-400">
+        <span className="pointer-events-none absolute left-1 top-0 text-[11px] font-medium text-slate-400">
           {hint}
         </span>
       )}
@@ -82,7 +84,7 @@ function CompactDateInput({ value, onChange, min, label, hint, id, name }) {
         size={17}
       />
       <input
-        className="h-full min-h-10 w-full min-w-0 appearance-none rounded-lg border border-white/10 bg-jedadi-dark px-3 pl-10 text-sm text-slate-100 outline-none transition focus:border-jedadi-blue focus:ring-1 focus:ring-jedadi-blue/30 [color-scheme:dark]"
+        className={`${hint ? "mt-4" : ""} h-full min-h-10 w-full min-w-0 appearance-none rounded-lg border border-white/10 bg-jedadi-dark px-3 pl-10 text-sm text-slate-100 outline-none transition focus:border-jedadi-blue focus:ring-1 focus:ring-jedadi-blue/30 [color-scheme:dark]`}
         type="date"
         id={id}
         name={name}
@@ -510,10 +512,16 @@ export default function App() {
   const [dashboardLoading, setDashboardLoading] = useState(false);
   const [activeTab, setActiveTab] = useState("university");
   const [categories, setCategories] = useState([]);
+  const [allCategories, setAllCategories] = useState([]);
   const [selectedCategory, setSelectedCategory] = useState(null);
+  const [isCategoryMenuOpen, setIsCategoryMenuOpen] = useState(false);
+  const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
+  const [isUpcomingDeliveriesOpen, setIsUpcomingDeliveriesOpen] = useState(false);
+  const [isSavingCategory, setIsSavingCategory] = useState(false);
   const [tasks, setTasks] = useState([]);
   const [filter, setFilter] = useState("all");
   const [isTaskFormOpen, setIsTaskFormOpen] = useState(false);
+  const [isSavingTask, setIsSavingTask] = useState(false);
   const [isCompletedTasksOpen, setIsCompletedTasksOpen] = useState(false);
   const [newCatName, setNewCatName] = useState("");
   const [newTask, setNewTask] = useState({
@@ -529,11 +537,17 @@ export default function App() {
     priority: "media",
     details: "",
   });
+  const [savingEditId, setSavingEditId] = useState(null);
   const [expandedTaskId, setExpandedTaskId] = useState(null);
+  const [isQuickNotesOpen, setIsQuickNotesOpen] = useState(false);
   const [currentTime, setCurrentTime] = useState(() => new Date());
-  const [notes, setNotes] = useState(() =>
-    JSON.parse(localStorage.getItem("dashboard-notes") || "{}"),
-  );
+  const [notes, setNotes] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem("dashboard-notes") || "{}");
+    } catch {
+      return {};
+    }
+  });
   const [notice, setNotice] = useState("");
 
   useEffect(() => {
@@ -557,6 +571,10 @@ export default function App() {
 
       setSession(null);
       setProfile(null);
+      setSelectedCategory(null);
+      setCategories([]);
+      setAllCategories([]);
+      setTasks([]);
       setAuthLoading(false);
       setIsRecoverySession(false);
       localStorage.removeItem(AUTH_SESSION_STARTED_AT);
@@ -712,7 +730,11 @@ export default function App() {
     async function fetchDashboardData() {
       setDashboardLoading(true);
       try {
-        const [{ data: categoryData }, { data: taskData }] = await Promise.all([
+        const [
+          { data: categoryData },
+          { data: taskData },
+          { data: allCategoryData },
+        ] = await Promise.all([
           supabase
             .from("categories")
             .select("*")
@@ -724,15 +746,47 @@ export default function App() {
             .select("*")
             .eq("user_id", session.user.id)
             .order("due_date", { ascending: true }),
+          supabase
+            .from("categories")
+            .select("*")
+            .eq("user_id", session.user.id)
+            .order("name"),
         ]);
         const nextCategories = categoryData || [];
+        const nextTasks = taskData || [];
+        const categoryWithNearestDueDate = [...nextCategories].sort(
+          (firstCategory, secondCategory) => {
+            const firstDueDate = nextTasks
+              .filter(
+                (task) =>
+                  task.category_id === firstCategory.id &&
+                  !task.is_completed &&
+                  task.due_date,
+              )
+              .map((task) => task.due_date)
+              .sort()[0];
+            const secondDueDate = nextTasks
+              .filter(
+                (task) =>
+                  task.category_id === secondCategory.id &&
+                  !task.is_completed &&
+                  task.due_date,
+              )
+              .map((task) => task.due_date)
+              .sort()[0];
+
+            if (!firstDueDate && !secondDueDate) {
+              return firstCategory.name.localeCompare(secondCategory.name);
+            }
+            if (!firstDueDate) return 1;
+            if (!secondDueDate) return -1;
+            return firstDueDate.localeCompare(secondDueDate);
+          },
+        )[0];
         setCategories(nextCategories);
-        setTasks(taskData || []);
-        setSelectedCategory((current) =>
-          nextCategories.some((category) => category.id === current)
-            ? current
-            : nextCategories[0]?.id || null,
-        );
+        setAllCategories(allCategoryData || []);
+        setTasks(nextTasks);
+        setSelectedCategory(categoryWithNearestDueDate?.id || null);
       } finally {
         setDashboardLoading(false);
       }
@@ -753,15 +807,22 @@ export default function App() {
 
   async function addCategory(event) {
     event.preventDefault();
-    if (!newCatName.trim()) return;
-    const { data, error } = await supabase
-      .from("categories")
-      .insert([{ name: newCatName.trim(), type: activeTab, user_id: session.user.id }])
-      .select();
-    if (error) return showNotice("No se pudo crear la categoría.");
-    setCategories((current) => [...current, data[0]]);
-    setSelectedCategory(data[0].id);
-    setNewCatName("");
+    if (!newCatName.trim() || isSavingCategory) return;
+    setIsSavingCategory(true);
+    try {
+      const { data, error } = await supabase
+        .from("categories")
+        .insert([{ name: newCatName.trim(), type: activeTab, user_id: session.user.id }])
+        .select();
+      if (error) return showNotice("No se pudo crear la categoría.");
+      setCategories((current) => [...current, data[0]]);
+      setAllCategories((current) => [...current, data[0]]);
+      setSelectedCategory(data[0].id);
+      setNewCatName("");
+      setIsCategoryModalOpen(false);
+    } finally {
+      setIsSavingCategory(false);
+    }
   }
 
   async function deleteCategory(category) {
@@ -791,7 +852,11 @@ export default function App() {
     const remainingCategories = categories.filter(
       (item) => item.id !== category.id,
     );
+    const remainingAllCategories = allCategories.filter(
+      (item) => item.id !== category.id,
+    );
     setCategories(remainingCategories);
+    setAllCategories(remainingAllCategories);
     setTasks((current) =>
       current.filter((task) => task.category_id !== category.id),
     );
@@ -803,28 +868,33 @@ export default function App() {
 
   async function addTask(event) {
     event.preventDefault();
-    if (!newTask.title.trim() || !newTask.due_date || !selectedCategory) return;
+    if (!newTask.title.trim() || !newTask.due_date || !selectedCategory || isSavingTask) return;
     if (newTask.due_date < todayString()) {
       return showNotice("La fecha no puede ser anterior a hoy.");
     }
-    const { data, error } = await supabase
-      .from("tasks")
-      .insert([
-        {
-          ...newTask,
-          title: newTask.title.trim(),
-          category_id: selectedCategory,
-          user_id: session.user.id,
-        },
-      ])
-      .select();
-    if (error) {
-      console.error("Error al guardar la tarea:", error);
-      return showNotice(`No se pudo guardar: ${error.message}`);
+    setIsSavingTask(true);
+    try {
+      const { data, error } = await supabase
+        .from("tasks")
+        .insert([
+          {
+            ...newTask,
+            title: newTask.title.trim(),
+            category_id: selectedCategory,
+            user_id: session.user.id,
+          },
+        ])
+        .select();
+      if (error) {
+        console.error("Error al guardar la tarea:", error);
+        return showNotice(`No se pudo guardar: ${error.message}`);
+      }
+      setTasks((current) => [...current, data[0]]);
+      setNewTask({ title: "", due_date: "", priority: "media", details: "" });
+      setIsTaskFormOpen(false);
+    } finally {
+      setIsSavingTask(false);
     }
-    setTasks((current) => [...current, data[0]]);
-    setNewTask({ title: "", due_date: "", priority: "media", details: "" });
-    setIsTaskFormOpen(false);
   }
 
   async function toggleTask(task) {
@@ -854,24 +924,29 @@ export default function App() {
 
   async function saveEdit(event, id) {
     event.preventDefault();
-    if (!editForm.title.trim() || !editForm.due_date) return;
+    if (!editForm.title.trim() || !editForm.due_date || savingEditId === id) return;
     if (editForm.due_date < todayString()) {
       return showNotice("La fecha no puede ser anterior a hoy.");
     }
-    const { error } = await supabase
-      .from("tasks")
-      .update({ ...editForm, title: editForm.title.trim() })
-      .eq("user_id", session.user.id)
-      .eq("id", id);
-    if (error) return showNotice("No se pudo editar la tarea.");
-    setTasks((current) =>
-      current.map((task) =>
-        task.id === id
-          ? { ...task, ...editForm, title: editForm.title.trim() }
-          : task,
-      ),
-    );
-    setEditingId(null);
+    setSavingEditId(id);
+    try {
+      const { error } = await supabase
+        .from("tasks")
+        .update({ ...editForm, title: editForm.title.trim() })
+        .eq("user_id", session.user.id)
+        .eq("id", id);
+      if (error) return showNotice("No se pudo editar la tarea.");
+      setTasks((current) =>
+        current.map((task) =>
+          task.id === id
+            ? { ...task, ...editForm, title: editForm.title.trim() }
+            : task,
+        ),
+      );
+      setEditingId(null);
+    } finally {
+      setSavingEditId(null);
+    }
   }
 
   async function deleteTask(id) {
@@ -903,9 +978,19 @@ export default function App() {
     ? Math.round((completedCount / categoryTasks.length) * 100)
     : 0;
   const sortTasksByDueDate = (firstTask, secondTask) => {
-    if (!firstTask.due_date) return 1;
-    if (!secondTask.due_date) return -1;
-    return firstTask.due_date.localeCompare(secondTask.due_date);
+    if (firstTask.due_date && secondTask.due_date) {
+      const dateDifference = firstTask.due_date.localeCompare(secondTask.due_date);
+      if (dateDifference !== 0) return dateDifference;
+    } else if (firstTask.due_date) {
+      return -1;
+    } else if (secondTask.due_date) {
+      return 1;
+    }
+
+    return (
+      (priorityOrder[firstTask.priority] || priorityOrder.media) -
+      (priorityOrder[secondTask.priority] || priorityOrder.media)
+    );
   };
   const activeTasks = tasks.filter((task) => !task.is_completed);
   const nextDueDate = activeTasks
@@ -915,6 +1000,9 @@ export default function App() {
   const nextDueTasks = nextDueDate
     ? activeTasks.filter((task) => task.due_date === nextDueDate)
     : activeTasks.slice(0, 1);
+  const upcomingDeliveries = activeTasks
+    .filter((task) => task.due_date)
+    .sort(sortTasksByDueDate);
   const visibleTasks = categoryTasks
     .filter((task) => {
       const today = todayString();
@@ -994,6 +1082,10 @@ export default function App() {
   async function signOut() {
     const { error } = await supabase.auth.signOut();
     localStorage.removeItem(AUTH_SESSION_STARTED_AT);
+    setSelectedCategory(null);
+    setCategories([]);
+    setAllCategories([]);
+    setTasks([]);
     if (error) showNotice(`No se pudo cerrar la sesión: ${error.message}`);
   }
 
@@ -1067,6 +1159,7 @@ export default function App() {
               onClick={() => {
                 setActiveTab(tab);
                 setFilter("all");
+                setIsCategoryMenuOpen(false);
               }}
               className={`flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-sm font-medium transition ${activeTab === tab ? (tab === "university" ? "bg-jedadi-blue text-jedadi-dark" : "bg-jedadi-green text-jedadi-dark") : "text-slate-400 hover:bg-white/5"}`}
             >
@@ -1096,13 +1189,13 @@ export default function App() {
         </div>
       </aside>
 
-      <main className="mx-auto min-w-0 w-full max-w-full flex-1 overflow-hidden p-4 sm:p-5 md:p-10">
+      <main className="mx-auto min-w-0 w-full max-w-full flex-1 overflow-hidden px-4 pb-24 pt-5 sm:px-5 sm:pb-24 sm:pt-5 md:px-10 md:pb-24 md:pt-5">
         {notice && (
           <div className="fixed right-5 top-5 z-10 rounded-lg border border-amber-500/30 bg-slate-800 px-4 py-3 text-sm text-amber-200 shadow-xl">
             {notice}
           </div>
         )}
-        <header className="mb-8">
+        <header className="mb-4">
           {isPaymentReturn && (
             <div
               className="mb-5 flex items-center gap-3 rounded-xl border border-jedadi-orange/30 bg-jedadi-orange/10 px-4 py-3 text-sm text-orange-100"
@@ -1119,19 +1212,8 @@ export default function App() {
               daysRemaining={subscriptionDaysRemaining}
             />
           )}
-          <p className="mb-2 text-xs font-bold uppercase tracking-[0.2em] text-jedadi-blue">
-            Panel de productividad
-          </p>
-          <h2 className="text-3xl font-extrabold text-white md:text-4xl">
-            {activeTab === "university"
-              ? "Asignaturas académicas"
-              : "Proyectos personales"}
-          </h2>
-          <p className="mt-2 text-sm text-slate-400">
-            Convierte tus pendientes en avances visibles.
-          </p>
         </header>
-        <nav className="sticky top-0 z-10 mb-6 grid grid-cols-2 gap-2 rounded-xl border border-white/10 bg-jedadi-dark/95 p-1 backdrop-blur md:hidden">
+        <nav className="sticky top-0 z-10 mb-4 grid grid-cols-2 gap-2 rounded-xl border border-white/10 bg-jedadi-dark/95 p-1 backdrop-blur md:hidden">
           {[
             ["university", GraduationCap, "Asignaturas académicas"],
             ["personal", User, "Personal"],
@@ -1142,6 +1224,7 @@ export default function App() {
               onClick={() => {
                 setActiveTab(tab);
                 setFilter("all");
+                setIsCategoryMenuOpen(false);
               }}
               className={`flex min-w-0 items-center justify-center gap-2 rounded-lg px-2 py-2.5 text-xs font-semibold transition ${activeTab === tab ? (tab === "university" ? "bg-jedadi-blue text-jedadi-dark" : "bg-jedadi-green text-jedadi-dark") : "text-slate-400 hover:bg-white/5"}`}
             >
@@ -1152,56 +1235,99 @@ export default function App() {
         </nav>
 
         <section className="mb-8">
-          <div className="dashboard-scroll flex gap-3 overflow-x-auto pb-3">
-            {sortedCategories.map((category) => (
-              <div
-                key={category.id}
-                className={`flex shrink-0 items-center rounded-xl border text-sm font-semibold transition ${urgentCategoryIds.has(category.id) ? "border-jedadi-orange bg-jedadi-orange/10 text-jedadi-orange shadow-[0_0_18px_rgba(255,138,0,0.16)]" : selectedCategory === category.id ? "border-jedadi-blue bg-white/5 text-jedadi-blue" : "border-white/10 bg-jedadi-dark text-slate-400"}`}
+          <div className="relative max-w-xl">
+            <div className="flex items-center gap-2 rounded-xl border border-white/10 bg-jedadi-dark p-1.5 shadow-lg shadow-black/10">
+              <button
+                type="button"
+                aria-expanded={isCategoryMenuOpen}
+                aria-haspopup="listbox"
+                onClick={() => setIsCategoryMenuOpen((current) => !current)}
+                className={`flex min-w-0 flex-1 items-center justify-between gap-3 rounded-lg px-3 py-2.5 text-left text-sm font-semibold transition hover:bg-white/5 ${selectedCategory && urgentCategoryIds.has(selectedCategory) ? "text-jedadi-orange" : "text-jedadi-blue"}`}
               >
-                <button
-                  onClick={() => {
-                    setSelectedCategory(category.id);
-                    setFilter("all");
-                  }}
-                  className="flex items-center gap-2 px-4 py-3 hover:text-jedadi-blue"
-                >
-                  {category.name}
-                  {urgentCategoryIds.has(category.id) && (
-                    <span className="rounded-full bg-jedadi-orange/15 px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-jedadi-orange">
+                <span className="flex min-w-0 items-center gap-2">
+                  <span className="truncate">
+                    {selectedName || "Selecciona una asignatura o proyecto"}
+                  </span>
+                  {selectedCategory && urgentCategoryIds.has(selectedCategory) && (
+                    <span className="shrink-0 rounded-full bg-jedadi-orange/15 px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-jedadi-orange">
                       ⚠️ Próxima
                     </span>
                   )}
-                </button>
+                </span>
+                <ChevronDown
+                  size={18}
+                  className={`shrink-0 transition-transform ${isCategoryMenuOpen ? "rotate-180" : ""}`}
+                />
+              </button>
+              {selectedCategory && (
                 <button
                   type="button"
-                  title={`Eliminar ${category.name}`}
-                  aria-label={`Eliminar ${category.name}`}
-                  onClick={() => deleteCategory(category)}
-                  className="mr-2 rounded-md p-1.5 text-slate-500 hover:bg-red-500/10 hover:text-red-300"
+                  title={`Eliminar ${selectedName}`}
+                  aria-label={`Eliminar ${selectedName}`}
+                  onClick={() => deleteCategory(categories.find((category) => category.id === selectedCategory))}
+                  className="mr-1 rounded-md p-2 text-slate-500 hover:bg-red-500/10 hover:text-red-300"
                 >
                   <Trash2 size={15} />
                 </button>
+              )}
+            </div>
+            {isCategoryMenuOpen && (
+              <div
+                role="listbox"
+                aria-label="Asignaturas y proyectos disponibles"
+                className="absolute left-0 right-0 top-full z-20 mt-2 max-h-56 overflow-y-auto rounded-xl border border-white/10 bg-slate-900 p-1.5 shadow-2xl shadow-black/30"
+              >
+                {sortedCategories.map((category) => (
+                  <div
+                    key={category.id}
+                    role="option"
+                    aria-selected={selectedCategory === category.id}
+                    className={`flex items-center rounded-lg text-sm font-semibold transition ${selectedCategory === category.id ? "bg-white/5 text-jedadi-blue" : "text-slate-400 hover:bg-white/5 hover:text-white"}`}
+                  >
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedCategory(category.id);
+                        setFilter("all");
+                        setIsCategoryMenuOpen(false);
+                      }}
+                      className="flex min-w-0 flex-1 items-center gap-2 px-3 py-2.5 text-left"
+                    >
+                      <span className="truncate">{category.name}</span>
+                      {urgentCategoryIds.has(category.id) && (
+                        <span className="shrink-0 rounded-full bg-jedadi-orange/15 px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-jedadi-orange">
+                          ⚠️ Próxima
+                        </span>
+                      )}
+                    </button>
+                    <button
+                      type="button"
+                      title={`Eliminar ${category.name}`}
+                      aria-label={`Eliminar ${category.name}`}
+                      onClick={() => deleteCategory(category)}
+                      className="mr-1 rounded-md p-2 text-slate-500 hover:bg-red-500/10 hover:text-red-300"
+                    >
+                      <Trash2 size={15} />
+                    </button>
+                  </div>
+                ))}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsCategoryMenuOpen(false);
+                    setNewCatName("");
+                    setIsCategoryModalOpen(true);
+                  }}
+                  className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-left text-sm font-semibold text-jedadi-blue transition hover:bg-jedadi-blue/10"
+                >
+                  <Plus size={16} />
+                  {activeTab === "university"
+                    ? "Crear nueva asignatura..."
+                    : "Crear nuevo proyecto..."}
+                </button>
               </div>
-            ))}
+            )}
           </div>
-          <form onSubmit={addCategory} className="flex max-w-md gap-2">
-            <input
-              id="new-category-name"
-              name="categoryName"
-              className={inputClass}
-              placeholder={
-                activeTab === "university"
-                  ? "Nueva asignatura..."
-                  : "Nuevo proyecto..."
-              }
-              value={newCatName}
-              onChange={(event) => setNewCatName(event.target.value)}
-            />
-            <button className="flex shrink-0 items-center gap-1 rounded-lg bg-slate-800 px-4 text-sm font-semibold hover:bg-slate-700">
-              <Plus size={16} />
-              Crear
-            </button>
-          </form>
         </section>
 
         {dashboardLoading ? (
@@ -1265,9 +1391,13 @@ export default function App() {
                     );
                   })}
                   {nextDueTasks.length > 2 && (
-                    <span className="ml-1 inline-block rounded-full bg-jedadi-orange/20 px-2 py-0.5 text-xs font-semibold text-orange-200">
+                    <button
+                      type="button"
+                      onClick={() => setIsUpcomingDeliveriesOpen(true)}
+                      className="ml-1 inline-block cursor-pointer rounded-full bg-jedadi-orange/20 px-2 py-0.5 text-xs font-semibold text-orange-200 transition hover:bg-jedadi-orange/35 hover:text-white"
+                    >
                       +{nextDueTasks.length - 2} más
-                    </span>
+                    </button>
                   )}
                 </div>
               ) : (
@@ -1297,28 +1427,29 @@ export default function App() {
                     ))}
                   </div>
                 </div>
-                <button
-                  type="button"
-                  aria-expanded={isTaskFormOpen}
-                  onClick={() => setIsTaskFormOpen((current) => !current)}
-                  className="mb-3 flex w-full items-center justify-between rounded-xl border border-jedadi-blue/20 bg-jedadi-blue/5 px-4 py-3 text-left text-sm font-bold text-jedadi-blue transition hover:border-jedadi-blue/50 hover:bg-jedadi-blue/10"
-                >
-                  <span className="flex items-center gap-2">
-                    <Plus
-                      size={17}
-                      className={`transition-transform duration-300 ${isTaskFormOpen ? "rotate-45" : ""}`}
-                    />
-                    Añadir tarea
-                  </span>
-                  <ChevronDown
-                    size={17}
-                    className={`transition-transform duration-300 ${isTaskFormOpen ? "rotate-180" : ""}`}
-                  />
-                </button>
-                <form
-                  onSubmit={addTask}
-                  className={`task-form-accordion grid min-w-0 grid-cols-1 gap-3 rounded-xl border border-slate-800 bg-slate-900 p-3 sm:p-4 md:grid-cols-[minmax(0,1fr)_150px_120px_auto] ${isTaskFormOpen ? "task-form-accordion-open mb-6" : ""}`}
-                >
+                {isTaskFormOpen && (
+                  <div
+                    className="fixed inset-0 z-40 flex items-center justify-center bg-black/70 px-4 backdrop-blur-sm"
+                    role="presentation"
+                    onMouseDown={(event) => {
+                      if (event.target === event.currentTarget) setIsTaskFormOpen(false);
+                    }}
+                  >
+                    <form
+                      onSubmit={addTask}
+                      role="dialog"
+                      aria-modal="true"
+                      aria-labelledby="task-modal-title"
+                      className="w-full max-w-lg rounded-2xl border border-jedadi-blue/20 bg-slate-900 p-5 shadow-2xl shadow-black/40 sm:p-6"
+                    >
+                      <div className="mb-5">
+                        <h3 id="task-modal-title" className="text-lg font-bold text-white">
+                          Nueva tarea
+                        </h3>
+                        <p className="mt-1 text-sm text-slate-400">
+                          Añade una actividad para {selectedName}.
+                        </p>
+                      </div>
                   <input
                     id="new-task-title"
                     name="taskTitle"
@@ -1363,11 +1494,26 @@ export default function App() {
                       setNewTask({ ...newTask, details: event.target.value })
                     }
                   />
-                  <button className="flex w-full items-center justify-center gap-1 rounded-lg bg-jedadi-blue px-4 py-2 text-sm font-semibold text-jedadi-dark hover:bg-cyan-300 md:w-auto">
+                  <button
+                    type="submit"
+                    disabled={isSavingTask}
+                    className="flex w-full items-center justify-center gap-1 rounded-lg bg-jedadi-blue px-4 py-2 text-sm font-semibold text-jedadi-dark transition hover:bg-cyan-300 disabled:cursor-not-allowed disabled:opacity-60 md:w-auto"
+                  >
                     <Plus size={16} />
-                    Añadir
+                    {isSavingTask ? "Guardando..." : "Guardar"}
                   </button>
-                </form>
+                      <div className="mt-5 flex justify-end gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setIsTaskFormOpen(false)}
+                          className="rounded-lg px-4 py-2 text-sm font-semibold text-slate-400 transition hover:bg-white/5 hover:text-white"
+                        >
+                          Cancelar
+                        </button>
+                      </div>
+                    </form>
+                  </div>
+                )}
                 <div className="space-y-3">
                   {visibleTasks.length === 0 ? (
                     <p className="py-8 text-center text-sm text-slate-500">
@@ -1439,7 +1585,8 @@ export default function App() {
                             <button
                               type="submit"
                               title="Guardar cambios"
-                              className="rounded-lg bg-emerald-600 px-3"
+                              disabled={savingEditId === task.id}
+                              className="rounded-lg bg-emerald-600 px-3 disabled:cursor-not-allowed disabled:opacity-60"
                             >
                               <Save size={16} />
                             </button>
@@ -1479,6 +1626,11 @@ export default function App() {
                               >
                                 {task.title}
                               </span>
+                              <span
+                                title={`Prioridad ${task.priority || "media"}`}
+                                aria-label={`Prioridad ${task.priority || "media"}`}
+                                className={`h-2.5 w-2.5 shrink-0 rounded-full ${task.priority === "alta" ? "bg-jedadi-orange shadow-[0_0_8px_rgba(255,138,0,0.6)]" : task.priority === "baja" ? "bg-jedadi-green shadow-[0_0_8px_rgba(34,197,94,0.5)]" : "bg-jedadi-purple shadow-[0_0_8px_rgba(168,85,247,0.5)]"}`}
+                              />
                             </button>
                             <div className="flex shrink-0 items-center gap-1 text-jedadi-gray sm:gap-2">
                             <button
@@ -1507,10 +1659,6 @@ export default function App() {
                                 {countdownLabel(task.due_date, currentTime)}
                               </span>
                             )}
-                            <span className="inline-flex items-center gap-1 font-semibold text-slate-300">
-                              <span className={`h-2 w-2 rounded-full ${task.priority === "alta" ? "bg-jedadi-orange" : task.priority === "baja" ? "bg-jedadi-green" : "bg-amber-400"}`} />
-                              {task.priority || "media"}
-                            </span>
                             {task.details && (
                               <button
                                 type="button"
@@ -1618,7 +1766,12 @@ export default function App() {
                             }
                           />
                           <div className="flex gap-2">
-                            <button type="submit" title="Guardar cambios" className="rounded-lg bg-emerald-600 px-3">
+                            <button
+                              type="submit"
+                              title="Guardar cambios"
+                              disabled={savingEditId === task.id}
+                              className="rounded-lg bg-emerald-600 px-3 disabled:cursor-not-allowed disabled:opacity-60"
+                            >
                               <Save size={16} />
                             </button>
                             <button
@@ -1643,6 +1796,11 @@ export default function App() {
                           >
                             <CheckCircle2 className="shrink-0 text-emerald-500" size={20} />
                             <span className="truncate text-sm line-through">{task.title}</span>
+                            <span
+                              title={`Prioridad ${task.priority || "media"}`}
+                              aria-label={`Prioridad ${task.priority || "media"}`}
+                              className={`h-2.5 w-2.5 shrink-0 rounded-full ${task.priority === "alta" ? "bg-jedadi-orange shadow-[0_0_8px_rgba(255,138,0,0.6)]" : task.priority === "baja" ? "bg-jedadi-green shadow-[0_0_8px_rgba(34,197,94,0.5)]" : "bg-jedadi-purple shadow-[0_0_8px_rgba(168,85,247,0.5)]"}`}
+                            />
                           </button>
                           <div className="flex shrink-0 items-center gap-1 text-jedadi-gray sm:gap-2">
                             <button
@@ -1663,10 +1821,6 @@ export default function App() {
                         </div>
                         <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-slate-400">
                           <span className="font-semibold text-jedadi-gray">Completada</span>
-                          <span className="inline-flex items-center gap-1 font-semibold text-slate-300">
-                            <span className={`h-2 w-2 rounded-full ${task.priority === "alta" ? "bg-jedadi-orange" : task.priority === "baja" ? "bg-jedadi-green" : "bg-amber-400"}`} />
-                            {task.priority || "media"}
-                          </span>
                           {task.details && (
                             <button
                               type="button"
@@ -1703,33 +1857,170 @@ export default function App() {
                 </div>
               </section>
               <aside className="w-full max-w-full overflow-hidden rounded-2xl border border-slate-800 bg-slate-950 p-5">
-                <div className="mb-4 flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <h3 className="mb-1 flex items-center gap-2 font-bold">
-                      <Edit3 size={17} className="text-amber-300" />
-                      Notas rápidas
-                    </h3>
+                <button
+                  type="button"
+                  aria-expanded={isQuickNotesOpen}
+                  onClick={() => setIsQuickNotesOpen((current) => !current)}
+                  className="flex w-full items-center justify-between gap-3 text-left"
+                >
+                  <h3 className="flex items-center gap-2 font-bold">
+                    <Edit3 size={17} className="text-amber-300" />
+                    Notas rápidas
+                  </h3>
+                  <ChevronDown
+                    size={18}
+                    className={`shrink-0 text-slate-400 transition-transform duration-300 ${isQuickNotesOpen ? "rotate-180" : ""}`}
+                  />
+                </button>
+                <div
+                  className={`overflow-hidden transition-all duration-300 ease-in-out ${isQuickNotesOpen ? "mt-4 max-h-[28rem] opacity-100" : "max-h-0 opacity-0"}`}
+                >
+                  <div className="mb-4 flex items-start justify-between gap-3">
                     <p className="text-xs text-slate-500">
                       Guardadas localmente para {selectedName}.
                     </p>
+                    <img
+                      src="/emblem.png"
+                      alt="Look always ahead"
+                      className="jedadi-emblem-glow h-11 w-11 shrink-0 object-contain opacity-80 md:hidden"
+                    />
                   </div>
-                  <img
-                    src="/emblem.png"
-                    alt="Look always ahead"
-                    className="jedadi-emblem-glow h-11 w-11 shrink-0 object-contain opacity-80 md:hidden"
+                  <textarea
+                    id="quick-notes"
+                    name="quickNotes"
+                    value={notes[selectedCategory] || ""}
+                    onChange={(event) => updateNotes(event.target.value)}
+                    className={`${inputClass} min-h-64 resize-y leading-6`}
+                    placeholder="Escribe ideas, enlaces o apuntes..."
                   />
                 </div>
-                <textarea
-                  id="quick-notes"
-                  name="quickNotes"
-                  value={notes[selectedCategory] || ""}
-                  onChange={(event) => updateNotes(event.target.value)}
-                  className={`${inputClass} min-h-64 resize-y leading-6`}
-                  placeholder="Escribe ideas, enlaces o apuntes..."
-                />
               </aside>
             </div>
           </>
+        )}
+        {selectedCategory && (
+          <button
+            type="button"
+            aria-label="Añadir tarea"
+            title="Añadir tarea"
+            onClick={() => setIsTaskFormOpen(true)}
+            className="fixed bottom-6 right-6 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-jedadi-blue text-jedadi-dark shadow-[0_0_22px_rgba(19,191,255,0.45)] transition hover:scale-105 hover:bg-cyan-300 focus:outline-none focus:ring-2 focus:ring-jedadi-blue focus:ring-offset-2 focus:ring-offset-jedadi-dark"
+          >
+            <Plus size={25} strokeWidth={2.5} />
+          </button>
+        )}
+        {isUpcomingDeliveriesOpen && (
+          <div
+            className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 px-4 py-6 backdrop-blur-sm"
+            role="presentation"
+            onMouseDown={(event) => {
+              if (event.target === event.currentTarget) setIsUpcomingDeliveriesOpen(false);
+            }}
+          >
+            <div
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="upcoming-deliveries-title"
+              className="flex max-h-full w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-jedadi-orange/30 bg-jedadi-dark shadow-2xl shadow-black/40"
+            >
+              <div className="flex items-center justify-between gap-4 border-b border-white/10 px-5 py-4">
+                <h3 id="upcoming-deliveries-title" className="text-lg font-bold text-white">
+                  Todas las próximas entregas
+                </h3>
+                <button
+                  type="button"
+                  aria-label="Cerrar próximas entregas"
+                  title="Cerrar"
+                  onClick={() => setIsUpcomingDeliveriesOpen(false)}
+                  className="rounded-lg p-2 text-slate-400 transition hover:bg-white/5 hover:text-white"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+              <div className="dashboard-scroll space-y-2 overflow-y-auto p-4">
+                {upcomingDeliveries.map((task) => {
+                  const subject = allCategories.find(
+                    (category) => category.id === task.category_id,
+                  )?.name;
+                  return (
+                    <div
+                      key={task.id}
+                      className="flex min-w-0 items-center gap-3 rounded-xl border border-white/10 bg-slate-900/80 px-3 py-3"
+                    >
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-bold text-white" title={task.title}>
+                          {task.title}
+                        </p>
+                        {subject && (
+                          <p className="truncate text-xs text-orange-200" title={subject}>
+                            ({subject})
+                          </p>
+                        )}
+                      </div>
+                      <span className="shrink-0 text-xs font-semibold text-orange-200">
+                        {countdownLabel(task.due_date, currentTime)}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        )}
+        {isCategoryModalOpen && (
+          <div
+            className="fixed inset-0 z-30 flex items-center justify-center bg-black/70 px-4 backdrop-blur-sm"
+            role="presentation"
+            onMouseDown={(event) => {
+              if (event.target === event.currentTarget) setIsCategoryModalOpen(false);
+            }}
+          >
+            <form
+              onSubmit={addCategory}
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="category-modal-title"
+              className="w-full max-w-sm rounded-2xl border border-white/10 bg-slate-900 p-5 shadow-2xl shadow-black/40"
+            >
+              <h3 id="category-modal-title" className="text-lg font-bold text-white">
+                {activeTab === "university"
+                  ? "Nueva asignatura"
+                  : "Nuevo proyecto"}
+              </h3>
+              <p className="mt-1 text-sm text-slate-400">
+                Añade un nombre para organizar tus actividades.
+              </p>
+              <input
+                id="new-category-name"
+                name="categoryName"
+                autoFocus
+                className={`${inputClass} mt-4`}
+                placeholder={
+                  activeTab === "university"
+                    ? "Nombre de la asignatura"
+                    : "Nombre del proyecto"
+                }
+                value={newCatName}
+                onChange={(event) => setNewCatName(event.target.value)}
+              />
+              <div className="mt-5 flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsCategoryModalOpen(false)}
+                  className="rounded-lg px-4 py-2 text-sm font-semibold text-slate-400 transition hover:bg-white/5 hover:text-white"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSavingCategory}
+                  className="rounded-lg bg-jedadi-blue px-4 py-2 text-sm font-bold text-jedadi-dark transition hover:bg-cyan-300 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {isSavingCategory ? "Guardando..." : "Guardar"}
+                </button>
+              </div>
+            </form>
+          </div>
         )}
         <BrandFooter />
       </main>
